@@ -1,0 +1,15 @@
+node_modules
+# Keep environment variables out of version control
+.env
+
+/generated/prisma
+
+# Build output
+dist/
+
+# Copilot files
+.github/copilot-instructions.md
+**/*copilot*
+
+# IDE files
+.vscode/settings.json

@@ -1,0 +1,193 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  phone     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // IOU relationships
+  iousCreated   IOU[] @relation("CreatedBy")
+  iousReceived  IOU[] @relation("ReceivedBy")
+
+  @@map("users")
+}
+
+model MobileAppUser {
+  id                String           @id @default(cuid())
+  mainErpUserId     String           @unique // Reference to main ERP system user ID
+  email             String           @unique
+  name              String
+  phone             String?
+  username          String           @unique
+  
+  // Registration process fields
+  qrCodeData        String?          // Temporary storage for QR code data
+  emailVerified     Boolean          @default(false)
+  emailVerificationCode String?      // Temporary verification code
+  emailVerificationExpiry DateTime?  // Expiry time for verification code
+  passwordVerified  Boolean          @default(false)
+  
+  // Account status
+  isActive          Boolean          @default(true)
+  isRegistered      Boolean          @default(false) // Completed full registration process
+  
+  // Security settings
+  lastLoginAt       DateTime?
+  lastPasswordCheck DateTime?
+  requiresReauth    Boolean          @default(false) // Force re-authentication
+  
+  // Device information
+  deviceInfo        Json?            // Store device details for security
+  
+  // Timestamps
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  
+  // Relations
+  sessions          UserSession[]
+  refreshTokens     RefreshToken[]
+
+  @@map("mobile_app_users")
+}
+
+model UserSession {
+  id              String         @id @default(cuid())
+  userId          String
+  user            MobileAppUser  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Session details
+  accessToken     String         @unique
+  sessionId       String         @unique
+  deviceId        String?        // Unique device identifier
+  deviceInfo      Json?          // Device details (OS, version, etc.)
+  ipAddress       String?
+  userAgent       String?
+  
+  // Session management
+  isActive        Boolean        @default(true)
+  lastActivityAt  DateTime       @default(now())
+  expiresAt       DateTime
+  
+  // Quick login settings
+  quickLoginEnabled Boolean      @default(true)
+  quickLoginExpiresAt DateTime?  // Quick login validity period
+  
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@map("user_sessions")
+}
+
+model RefreshToken {
+  id              String         @id @default(cuid())
+  userId          String
+  user            MobileAppUser  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  token           String         @unique
+  sessionId       String         // Link to user session
+  
+  isActive        Boolean        @default(true)
+  expiresAt       DateTime
+  
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@map("refresh_tokens")
+}
+
+model QRCodeSession {
+  id              String    @id @default(cuid())
+  qrToken         String    @unique // Unique token for QR code
+  mainErpUserId   String    // User ID from main ERP system
+  userEmail       String
+  userName        String
+  userPhone       String?
+  
+  // QR Code data
+  qrData          Json      // Complete user data from main ERP
+  
+  // Session management
+  isUsed          Boolean   @default(false)
+  expiresAt       DateTime  // QR code expiry (e.g., 5 minutes)
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@map("qr_code_sessions")
+}
+
+model EmailVerification {
+  id                String    @id @default(cuid())
+  email             String
+  verificationCode  String
+  attempts          Int       @default(0)
+  maxAttempts       Int       @default(3)
+  isUsed            Boolean   @default(false)
+  expiresAt         DateTime  // Usually 15 minutes
+  
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@map("email_verifications")
+}
+
+model MiddlewareLog {
+  id              String    @id @default(cuid())
+  operation       String    // Type of operation (user_verification, password_check, etc.)
+  mainErpUserId   String?   // User ID from main ERP
+  requestData     Json?     // Request sent to main ERP
+  responseData    Json?     // Response from main ERP
+  status          String    // SUCCESS, FAILED, TIMEOUT, etc.
+  errorMessage    String?
+  responseTime    Int?      // Response time in ms
+  
+  createdAt       DateTime  @default(now())
+
+  @@map("middleware_logs")
+}
+
+model IOU {
+  id          String     @id @default(cuid())
+  amount      Decimal    @db.Decimal(10, 2)
+  currency    String     @default("USD")
+  description String?
+  dueDate     DateTime?
+  status      IOUStatus  @default(PENDING)
+  
+  // Relationships
+  createdById String
+  createdBy   User   @relation("CreatedBy", fields: [createdById], references: [id])
+  
+  receivedById String
+  receivedBy   User   @relation("ReceivedBy", fields: [receivedById], references: [id])
+  
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  paidAt      DateTime?
+
+  @@map("ious")
+}
+
+enum IOUStatus {
+  PENDING
+  PAID
+  CANCELLED
+  OVERDUE
+}
