@@ -23,6 +23,12 @@ export interface QRCodeData {
   phone?: string;
   expiresAt: string;
   timestamp: number;
+  // Mobile app QR format compatibility
+  emp_id?: number | string;
+  emp_uname?: string;
+  emp_email?: string;
+  emp_name?: string;
+  emp_phone?: string;
 }
 
 export interface PasswordVerificationRequest {
@@ -49,14 +55,46 @@ export class MainERPMiddlewareService {
   /**
    * Validate QR code token and get user data from main ERP system
    */
-  async validateQRCodeToken(qrToken: string): Promise<MainERPUser> {
+  async validateQRCodeToken(qrToken: string, qrData?: QRCodeData): Promise<MainERPUser> {
     const startTime = Date.now();
     
     try {
       this.logger.log(`Validating QR token: ${qrToken}`);
       
-      // In a real implementation, this would call the main ERP API
-      // For now, we'll simulate the response based on the QR token
+      // Check if this is a mobile app generated token (starts with 'qr_')
+      if (qrToken.startsWith('qr_') && qrData) {
+        this.logger.log('Handling mobile app QR code format');
+        
+        // Extract employee ID from token or QR data
+        const empId = qrData.emp_id || qrData.userId;
+        const mainErpUserId = `usr_${empId}_mobile`;
+        
+        // Create a simulated main ERP user response for mobile app
+        const mainERPUser: MainERPUser = {
+          id: mainErpUserId,
+          username: qrData.emp_uname || qrData.username,
+          email: qrData.emp_email || qrData.email,
+          name: qrData.emp_name || qrData.name || qrData.emp_uname || qrData.username,
+          phone: qrData.emp_phone || qrData.phone,
+          isActive: true,
+        };
+        
+        this.logger.log(`Generated main ERP user for mobile app: ${JSON.stringify(mainERPUser)}`);
+        
+        // Log the operation
+        await this.logMiddlewareOperation({
+          operation: 'qr_validation',
+          mainErpUserId: mainERPUser.id,
+          requestData: { qrToken, mobileApp: true },
+          responseData: mainERPUser,
+          status: 'SUCCESS',
+          responseTime: Date.now() - startTime,
+        });
+        
+        return mainERPUser;
+      }
+      
+      // Handle standard ERP QR tokens
       const response = await this.callMainERPAPI('POST', '/auth/validate-qr', {
         qrToken,
       });
@@ -195,25 +233,48 @@ export class MainERPMiddlewareService {
   }
 
   /**
-   * Simulate QR code data parsing (in real implementation, this would decode the QR)
+   * Parse QR code data (decode base64 JSON from the QR code or handle plain JSON)
    */
   parseQRCodeData(qrCodeString: string): QRCodeData {
     try {
-      // In real implementation, this would parse actual QR code data
-      // For demo purposes, we'll create mock data
-      const mockData: QRCodeData = {
-        qrToken: 'qr_' + Math.random().toString(36).substr(2, 9),
-        userId: 'usr_' + Math.random().toString(36).substr(2, 9),
-        username: 'demou',
-        email: 'ashanisamarakoon36@gmail.com',
-        name: 'demou',
-        phone: '+1234567890',
-        expiresAt: new Date(Date.now() + 5 * 60 * 1000).toISOString(), // 5 minutes
-        timestamp: Date.now(),
+      let qrData: any;
+      
+      // Try to parse as JSON first (mobile app format)
+      try {
+        qrData = JSON.parse(qrCodeString);
+        this.logger.log(`Parsed QR data as JSON: ${JSON.stringify(qrData)}`);
+      } catch (jsonError) {
+        // If JSON parsing fails, try base64 decoding (main ERP format)
+        try {
+          const decodedData = Buffer.from(qrCodeString, 'base64').toString('utf-8');
+          qrData = JSON.parse(decodedData);
+          this.logger.log(`Parsed QR data as base64: ${JSON.stringify(qrData)}`);
+        } catch (base64Error) {
+          throw new Error('Could not parse QR code as JSON or base64-encoded JSON');
+        }
+      }
+      
+      // Transform the QR data to our expected format
+      const parsedData: QRCodeData = {
+        qrToken: qrData.qrToken || ('qr_' + qrData.emp_id + '_' + Date.now()), // Generate unique token if not present
+        userId: qrData.userId || qrData.emp_id?.toString() || 'unknown',
+        username: qrData.username || qrData.emp_uname || 'unknown',
+        email: qrData.email || qrData.emp_email || '',
+        name: qrData.name || qrData.emp_name || qrData.emp_uname || 'Unknown User',
+        phone: qrData.phone || qrData.emp_phone || qrData.emp_mobile_no || '',
+        expiresAt: qrData.expiresAt || new Date(Date.now() + 5 * 60 * 1000).toISOString(), // 5 minutes
+        timestamp: qrData.timestamp || Date.now(),
+        // Add mobile app specific fields for backward compatibility
+        emp_id: qrData.emp_id,
+        emp_uname: qrData.emp_uname,
+        emp_email: qrData.emp_email,
+        emp_name: qrData.emp_name,
+        emp_phone: qrData.emp_phone,
       };
 
-      return mockData;
+      return parsedData;
     } catch (error) {
+      this.logger.error(`Error parsing QR code: ${error.message}`);
       throw new HttpException(
         'Invalid QR code format',
         HttpStatus.BAD_REQUEST,
@@ -257,17 +318,38 @@ export class MainERPMiddlewareService {
     await new Promise(resolve => setTimeout(resolve, 100 + Math.random() * 200));
 
     if (endpoint === '/auth/validate-qr') {
+      // Extract user ID from the QR token to create consistent user data
+      let empId = '1';
+      let userData = {
+        id: 'usr_demou_12345',
+        username: 'demou',
+        email: 'ashanisamarakoon36@gmail.com',
+        name: 'demou',
+        phone: '0703101244',
+        department: 'Logistics',
+        role: 'Manager',
+        isActive: true,
+      };
+
+      // If we have QR data, extract the employee ID for consistent responses
+      if (data?.qrToken) {
+        try {
+          this.logger.log(`Processing QR token: ${data.qrToken}`);
+          // QR token format is: qr_${emp_id}_${timestamp}
+          // We need to extract emp_id which could contain underscores
+          const match = data.qrToken.match(/^qr_(.+)_\d+$/);
+          if (match) {
+            empId = match[1]; // This gets the full emp_id including underscores
+            userData.id = empId; // Use the emp_id directly as the user ID
+            this.logger.log(`Extracted emp_id: ${empId}`);
+          }
+        } catch (error) {
+          this.logger.warn(`Could not parse QR token details: ${error.message}`);
+        }
+      }
+
       return {
-        data: {
-          id: 'usr_demou_12345',
-          username: 'demou',
-          email: 'ashanisamarakoon36@gmail.com',
-          name: 'demou',
-          phone: '+1234567890',
-          department: 'Logistics',
-          role: 'Manager',
-          isActive: true,
-        },
+        data: userData,
         status: 200,
         statusText: 'OK',
         headers: {},

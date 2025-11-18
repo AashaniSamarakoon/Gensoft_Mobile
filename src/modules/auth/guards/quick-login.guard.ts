@@ -35,11 +35,11 @@ export class QuickLoginGuard implements CanActivate {
       throw new UnauthorizedException('Quick login not available');
     }
 
-    // Check if user needs re-authentication (e.g., haven't logged in for 3+ days)
+    // Check if user needs re-authentication (24 hours)
     const lastLogin = user.lastLoginAt;
-    const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
-    if (!lastLogin || lastLogin < threeDaysAgo) {
+    if (!lastLogin || lastLogin < twentyFourHoursAgo) {
       throw new UnauthorizedException('Re-authentication required - login expired');
     }
 

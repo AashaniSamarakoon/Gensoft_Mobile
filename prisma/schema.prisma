@@ -21,10 +21,6 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // IOU relationships
-  iousCreated   IOU[] @relation("CreatedBy")
-  iousReceived  IOU[] @relation("ReceivedBy")
-
   @@map("users")
 }
 
@@ -42,6 +38,7 @@ model MobileAppUser {
   emailVerificationCode String?      // Temporary verification code
   emailVerificationExpiry DateTime?  // Expiry time for verification code
   passwordVerified  Boolean          @default(false)
+  mobilePassword    String?          // Hashed mobile app password
   
   // Account status
   isActive          Boolean          @default(true)
@@ -53,7 +50,7 @@ model MobileAppUser {
   requiresReauth    Boolean          @default(false) // Force re-authentication
   
   // Device information
-  deviceInfo        Json?            // Store device details for security
+  deviceInfo        String?          // Store device details for security as JSON string
   
   // Timestamps
   createdAt         DateTime         @default(now())
@@ -62,6 +59,8 @@ model MobileAppUser {
   // Relations
   sessions          UserSession[]
   refreshTokens     RefreshToken[]
+  createdIOUs       IOU[]          @relation("CreatedBy")
+  receivedIOUs      IOU[]          @relation("ReceivedBy")
 
   @@map("mobile_app_users")
 }
@@ -72,10 +71,10 @@ model UserSession {
   user            MobileAppUser  @relation(fields: [userId], references: [id], onDelete: Cascade)
   
   // Session details
-  accessToken     String         @unique
+  accessToken     String         @db.Text
   sessionId       String         @unique
   deviceId        String?        // Unique device identifier
-  deviceInfo      Json?          // Device details (OS, version, etc.)
+  deviceInfo      String?        // Device details (OS, version, etc.) as JSON string
   ipAddress       String?
   userAgent       String?
   
@@ -99,7 +98,7 @@ model RefreshToken {
   userId          String
   user            MobileAppUser  @relation(fields: [userId], references: [id], onDelete: Cascade)
   
-  token           String         @unique
+  token           String         @db.Text
   sessionId       String         // Link to user session
   
   isActive        Boolean        @default(true)
@@ -120,7 +119,7 @@ model QRCodeSession {
   userPhone       String?
   
   // QR Code data
-  qrData          Json      // Complete user data from main ERP
+  qrData          String    @db.Text // Complete user data from main ERP as JSON string
   
   // Session management
   isUsed          Boolean   @default(false)
@@ -151,8 +150,8 @@ model MiddlewareLog {
   id              String    @id @default(cuid())
   operation       String    // Type of operation (user_verification, password_check, etc.)
   mainErpUserId   String?   // User ID from main ERP
-  requestData     Json?     // Request sent to main ERP
-  responseData    Json?     // Response from main ERP
+  requestData     String?   @db.Text // Request sent to main ERP as JSON string
+  responseData    String?   @db.Text // Response from main ERP as JSON string
   status          String    // SUCCESS, FAILED, TIMEOUT, etc.
   errorMessage    String?
   responseTime    Int?      // Response time in ms
@@ -172,10 +171,10 @@ model IOU {
   
   // Relationships
   createdById String
-  createdBy   User   @relation("CreatedBy", fields: [createdById], references: [id])
+  createdBy   MobileAppUser   @relation("CreatedBy", fields: [createdById], references: [id])
   
   receivedById String
-  receivedBy   User   @relation("ReceivedBy", fields: [receivedById], references: [id])
+  receivedBy   MobileAppUser   @relation("ReceivedBy", fields: [receivedById], references: [id])
   
   // Timestamps
   createdAt   DateTime @default(now())
@@ -185,9 +184,177 @@ model IOU {
   @@map("ious")
 }
 
+model Proof {
+  id          String      @id @default(cuid())
+  description String
+  date        DateTime
+  category    String      // 'Bill', 'Invoice', 'Receipt', 'Delivery Photo', 'Proof of Delivery', etc.
+  amount      Decimal?    @db.Decimal(10, 2)
+  notes       String?     @db.Text
+  attachments String?     @db.Text // JSON array of file URLs
+  status      ProofStatus @default(DRAFT)
+  
+  // User information
+  userId      String?     // Mobile app user ID
+  employeeId  String?     // Employee ID from main ERP
+  jobNumber   String?     // Associated job number
+  customer    String?     // Customer name
+  
+  // Timestamps
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  
+  @@map("proofs")
+}
+
+model Settlement {
+  id            String            @id @default(cuid())
+  payee         String
+  module        String?
+  jobNumber     String?
+  customer      String?
+  refNo         String
+  iouAmount     Decimal           @db.Decimal(10, 2)
+  returnAmount  Decimal           @default(0) @db.Decimal(10, 2)
+  utilized      Decimal           @db.Decimal(10, 2)
+  tax           Decimal           @default(0) @db.Decimal(10, 2)
+  vat           Decimal           @default(0) @db.Decimal(10, 2)
+  description   String?           @db.Text
+  costCenter    String?
+  status        SettlementStatus  @default(DRAFT)
+  
+  // User information
+  userId        String?           // Mobile app user ID
+  employeeId    String?           // Employee ID from main ERP
+  
+  // Timestamps
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  submittedAt   DateTime?
+  approvedAt    DateTime?
+  
+  @@map("settlements")
+}
+
+model Module {
+  id          String    @id @default(cuid())
+  name        String    @unique
+  displayName String
+  description String?   @db.Text
+  isActive    Boolean   @default(true)
+  sortOrder   Int       @default(0)
+  
+  // Relations
+  approvals   Approval[]
+  
+  // Timestamps
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  @@map("modules")
+}
+
+model Approval {
+  id          String         @id @default(cuid())
+  itemType    String         // 'iou', 'proof', 'settlement', 'task'
+  itemId      String         // ID of the item being approved
+  moduleId    String?        // Reference to module
+  module      Module?        @relation(fields: [moduleId], references: [id])
+  title       String
+  description String?        @db.Text
+  amount      Decimal?       @db.Decimal(10, 2)
+  requestedBy String         // User who requested approval
+  assignedTo  String?        // User assigned to approve
+  status      ApprovalStatus @default(PENDING)
+  priority    String         @default("MEDIUM") // 'LOW', 'MEDIUM', 'HIGH', 'URGENT'
+  
+  // Job related info
+  jobNumber   String?
+  customerPayee String?
+  refNo       String?
+  blNo        String?
+  invNo       String?
+  
+  // Approval details
+  approvedBy  String?        // User who approved/rejected
+  comments    String?        @db.Text
+  approvedAt  DateTime?
+  
+  // Timestamps
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  
+  @@map("approvals")
+}
+
+model Task {
+  id          String     @id @default(cuid())
+  title       String
+  description String?    @db.Text
+  status      TaskStatus @default(TODO)
+  priority    String     @default("MEDIUM") // 'LOW', 'MEDIUM', 'HIGH', 'URGENT'
+  category    String?    // 'delivery', 'pickup', 'inspection', 'documentation', etc.
+  
+  // Assignment
+  assignedTo  String?    // User assigned to task
+  assignedBy  String?    // User who assigned the task
+  
+  // Task details
+  dueDate     DateTime?
+  completedAt DateTime?
+  estimatedHours Int?
+  actualHours Int?
+  
+  // Location and job info
+  jobNumber   String?
+  customer    String?
+  location    String?
+  coordinates String?    // JSON string with lat/lng
+  
+  // User information
+  userId      String?    // Mobile app user ID
+  employeeId  String?    // Employee ID from main ERP
+  
+  // Timestamps
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  
+  @@map("tasks")
+}
+
 enum IOUStatus {
   PENDING
   PAID
   CANCELLED
   OVERDUE
+}
+
+enum ProofStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
+}
+
+enum SettlementStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
+  PAID
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  ON_HOLD
 }

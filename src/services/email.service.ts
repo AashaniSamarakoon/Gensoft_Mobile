@@ -31,10 +31,10 @@ export class EmailService {
         html: this.getVerificationEmailTemplate(userName, code),
       };
 
-      // For demo purposes, we'll just log the email instead of actually sending
-      this.logger.log(`Email verification code for ${email}: ${code}`);
+      // Send actual email
+      this.logger.log(`Sending email verification code to ${email}: ${code}`);
       console.log('='.repeat(50));
-      console.log('📧 EMAIL VERIFICATION CODE');
+      console.log('📧 SENDING EMAIL VERIFICATION CODE');
       console.log('='.repeat(50));
       console.log(`To: ${email}`);
       console.log(`Name: ${userName}`);
@@ -42,11 +42,17 @@ export class EmailService {
       console.log(`Expires: 15 minutes`);
       console.log('='.repeat(50));
 
-      // Uncomment below lines to actually send email
-      // const info = await this.transporter.sendMail(mailOptions);
-      // this.logger.log(`Email sent: ${info.messageId}`);
-
-      return true;
+      try {
+        const info = await this.transporter.sendMail(mailOptions);
+        this.logger.log(`✅ Email sent successfully: ${info.messageId}`);
+        console.log(`✅ Email sent successfully to ${email}`);
+        return true;
+      } catch (emailError) {
+        this.logger.error(`❌ Failed to send email: ${emailError.message}`);
+        console.log(`❌ Email send failed: ${emailError.message}`);
+        console.log('📝 Verification code (fallback):', code);
+        return false;
+      }
     } catch (error) {
       this.logger.error(`Failed to send verification email: ${error.message}`);
       return false;

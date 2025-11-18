@@ -27,12 +27,21 @@ export class IOUController {
   @HttpCode(HttpStatus.CREATED)
   async create(@Body() createIOUDto: CreateIOUDto, @Request() req: any) {
     const userId = req.user.userId;
-    return this.iouService.create(createIOUDto, userId);
+    const iou = await this.iouService.create(createIOUDto, userId);
+    return {
+      success: true,
+      message: 'IOU created successfully',
+      data: iou,
+    };
   }
 
   @Get()
   async findAll(@Query() queryDto: QueryIOUDto) {
-    return this.iouService.findAll(queryDto);
+    const ious = await this.iouService.findAll(queryDto);
+    return {
+      success: true,
+      data: ious,
+    };
   }
 
   @Get('stats/:userId')

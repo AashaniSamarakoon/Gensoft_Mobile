@@ -1,0 +1,6 @@
+<!-- Simple splash screen placeholder -->
+<svg width="1284" height="2778" viewBox="0 0 1284 2778" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1284" height="2778" fill="#007bff"/>
+  <text x="642" y="1400" font-family="Arial, sans-serif" font-size="120" font-weight="bold" fill="white" text-anchor="middle">ERP Mobile</text>
+  <text x="642" y="1550" font-family="Arial, sans-serif" font-size="60" fill="#e3f2fd" text-anchor="middle">Loading...</text>
+</svg>

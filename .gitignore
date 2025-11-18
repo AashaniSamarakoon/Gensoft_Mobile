@@ -13,3 +13,4 @@ dist/
 
 # IDE files
 .vscode/settings.json
+.env.example

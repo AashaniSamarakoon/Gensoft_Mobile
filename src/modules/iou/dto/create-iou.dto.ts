@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsString, IsDecimal, IsOptional, IsDateString, IsEnum, IsUUID } from 'class-validator';
+import { IsNotEmpty, IsString, IsDecimal, IsOptional, IsDateString, IsEnum, IsUUID, IsEmail, ValidateIf } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export enum IOUStatus {
@@ -9,9 +9,13 @@ export enum IOUStatus {
 }
 
 export class CreateIOUDto {
+  @IsOptional()
+  @IsString()
+  title?: string; // For mobile app compatibility
+
   @IsNotEmpty()
-  @IsDecimal({ decimal_digits: '2' })
-  amount: number;
+  @IsString()
+  amount: string; // Accept as string for mobile app
 
   @IsOptional()
   @IsString()
@@ -25,7 +29,18 @@ export class CreateIOUDto {
   @IsDateString()
   dueDate?: string;
 
+  @IsOptional()
+  @IsString()
+  category?: string; // For mobile app compatibility
+
+  // Support both UUID (new format) and email (mobile app format)
+  @ValidateIf(o => !o.debtorEmail)
   @IsNotEmpty()
   @IsUUID()
-  receivedById: string;
+  receivedById?: string;
+
+  @ValidateIf(o => !o.receivedById)
+  @IsNotEmpty()
+  @IsEmail()
+  debtorEmail?: string; // For mobile app compatibility
 }

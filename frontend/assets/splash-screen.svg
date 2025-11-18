@@ -1,0 +1,40 @@
+<svg width="1080" height="1920" viewBox="0 0 1080 1920" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Gradient background inspired by the reference image -->
+  <defs>
+    <linearGradient id="backgroundGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#ffffff;stop-opacity:1" />
+      <stop offset="60%" style="stop-color:#f8f9fa;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#e3f2fd;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="bottomGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#007bff;stop-opacity:0.9" />
+      <stop offset="100%" style="stop-color:#0056b3;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Main background -->
+  <rect width="1080" height="1920" fill="url(#backgroundGradient)"/>
+  
+  <!-- Bottom curved gradient section (like in reference image) -->
+  <path d="M0 1200 Q540 1100 1080 1200 L1080 1920 L0 1920 Z" fill="url(#bottomGradient)"/>
+  
+  <!-- Logo area - white circular background -->
+  <circle cx="540" cy="960" r="100" fill="#ffffff" opacity="0.95" stroke="#007bff" stroke-width="4"/>
+  
+  <!-- Your Gensoft Logo -->
+  <defs>
+    <clipPath id="logoClip">
+      <circle cx="540" cy="960" r="85"/>
+    </clipPath>
+  </defs>
+  <image href="./Logo/gensoft-logo.jpg" x="455" y="875" width="170" height="170" clip-path="url(#logoClip)"/>
+  
+  <!-- Company name below logo -->
+  <text x="540" y="1150" text-anchor="middle" fill="#2c3e50" font-family="Arial, sans-serif" font-size="48" font-weight="bold">Gensoft ERP</text>
+  <text x="540" y="1200" text-anchor="middle" fill="#7f8c8d" font-family="Arial, sans-serif" font-size="28">Logistics Management</text>
+  
+  <!-- Loading indicator at bottom -->
+  <circle cx="540" cy="1600" r="4" fill="#ffffff" opacity="0.8">
+    <animate attributeName="opacity" values="0.8;0.2;0.8" dur="2s" repeatCount="indefinite"/>
+  </circle>
+</svg>

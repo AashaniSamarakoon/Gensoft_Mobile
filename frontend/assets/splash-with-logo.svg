@@ -1,0 +1,35 @@
+
+<svg width="1242" height="2208" viewBox="0 0 1242 2208" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background gradient matching your design -->
+  <defs>
+    <linearGradient id="backgroundGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#764ba2;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#667eea;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="1242" height="2208" fill="url(#backgroundGradient)"/>
+  
+  <!-- Logo circular background -->
+  <circle cx="621" cy="1104" r="120" fill="rgba(255,255,255,0.95)" stroke="rgba(255,255,255,0.3)" stroke-width="2"/>
+  
+  <!-- Your Gensoft Logo embedded -->
+  <image href="./gensoft-logo.jpg" x="501" y="984" width="240" height="240" style="clip-path: circle(100px at 120px 120px);"/>
+  
+  <!-- Company branding -->
+  <text x="621" y="1320" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="52" font-weight="bold">Gensoft ERP</text>
+  <text x="621" y="1380" text-anchor="middle" fill="rgba(255,255,255,0.85)" font-family="Arial, sans-serif" font-size="28">Logistics Management System</text>
+  
+  <!-- Loading dots -->
+  <circle cx="600" cy="1500" r="6" fill="rgba(255,255,255,0.7)">
+    <animate attributeName="opacity" values="0.7;0.2;0.7" dur="1.5s" repeatCount="indefinite" begin="0s"/>
+  </circle>
+  <circle cx="621" cy="1500" r="6" fill="rgba(255,255,255,0.7)">
+    <animate attributeName="opacity" values="0.7;0.2;0.7" dur="1.5s" repeatCount="indefinite" begin="0.5s"/>
+  </circle>
+  <circle cx="642" cy="1500" r="6" fill="rgba(255,255,255,0.7)">
+    <animate attributeName="opacity" values="0.7;0.2;0.7" dur="1.5s" repeatCount="indefinite" begin="1s"/>
+  </circle>
+</svg>

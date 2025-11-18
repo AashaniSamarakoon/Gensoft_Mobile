@@ -9,33 +9,73 @@ export class IOUService {
   constructor(private prisma: PrismaService) {}
 
   async create(createIOUDto: CreateIOUDto, createdById: string) {
+    let receivedById: string;
+
+    // Handle email-based IOU creation (mobile app compatibility)
+    if (createIOUDto.debtorEmail) {
+      // Find user by email (could be MobileAppUser or regular User)
+      const receivedByMobile = await this.prisma.mobileAppUser.findUnique({
+        where: { email: createIOUDto.debtorEmail }
+      });
+
+      if (receivedByMobile) {
+        receivedById = receivedByMobile.id;
+      } else {
+        // Try to find in regular users table
+        const receivedByRegular = await this.prisma.user.findUnique({
+          where: { email: createIOUDto.debtorEmail }
+        });
+        
+        if (receivedByRegular) {
+          receivedById = receivedByRegular.id;
+        } else {
+          throw new NotFoundException(`User with email ${createIOUDto.debtorEmail} not found`);
+        }
+      }
+    } else if (createIOUDto.receivedById) {
+      receivedById = createIOUDto.receivedById;
+    } else {
+      throw new BadRequestException('Either receivedById or debtorEmail must be provided');
+    }
+
     // Check if the user is trying to create IOU to themselves
-    if (createIOUDto.receivedById === createdById) {
+    if (receivedById === createdById) {
       throw new BadRequestException('Cannot create IOU to yourself');
     }
 
-    // Verify both users exist
-    const [createdBy, receivedBy] = await Promise.all([
-      this.prisma.user.findUnique({ where: { id: createdById } }),
-      this.prisma.user.findUnique({ where: { id: createIOUDto.receivedById } }),
-    ]);
+    // Verify creator exists (check both user tables)
+    const createdBy = await this.prisma.mobileAppUser.findUnique({ 
+      where: { id: createdById } 
+    }) || await this.prisma.user.findUnique({ 
+      where: { id: createdById } 
+    });
 
     if (!createdBy) {
       throw new NotFoundException('Creator user not found');
     }
 
-    if (!receivedBy) {
-      throw new NotFoundException('Receiver user not found');
+    // Parse amount from string if needed
+    const amountValue = typeof createIOUDto.amount === 'string' 
+      ? parseFloat(createIOUDto.amount) 
+      : createIOUDto.amount;
+
+    if (isNaN(amountValue)) {
+      throw new BadRequestException('Invalid amount value');
     }
+
+    // Combine title and description for the description field
+    const description = createIOUDto.title 
+      ? `${createIOUDto.title}${createIOUDto.description ? ': ' + createIOUDto.description : ''}`
+      : createIOUDto.description;
 
     return this.prisma.iOU.create({
       data: {
-        amount: createIOUDto.amount,
+        amount: amountValue,
         currency: createIOUDto.currency || 'USD',
-        description: createIOUDto.description,
+        description: description,
         dueDate: createIOUDto.dueDate ? new Date(createIOUDto.dueDate) : null,
         createdById,
-        receivedById: createIOUDto.receivedById,
+        receivedById,
       },
       include: {
         createdBy: {
@@ -196,6 +236,27 @@ export class IOUService {
     return this.prisma.iOU.delete({
       where: { id },
     });
+  }
+
+  async getStatistics(userId?: string) {
+    const where: any = {};
+    if (userId) where.createdById = userId;
+
+    const [total, pending, paid, cancelled, overdue] = await Promise.all([
+      this.prisma.iOU.count({ where }),
+      this.prisma.iOU.count({ where: { ...where, status: 'PENDING' } }),
+      this.prisma.iOU.count({ where: { ...where, status: 'PAID' } }),
+      this.prisma.iOU.count({ where: { ...where, status: 'CANCELLED' } }),
+      this.prisma.iOU.count({ where: { ...where, status: 'OVERDUE' } }),
+    ]);
+
+    return {
+      total,
+      pending,
+      paid,
+      cancelled,
+      overdue,
+    };
   }
 
   async markAsPaid(id: string, userId: string) {
