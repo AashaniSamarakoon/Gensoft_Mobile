@@ -18,6 +18,7 @@ import * as Animatable from 'react-native-animatable';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useDashboard } from '../context/DashboardContext';
+import SessionManager from '../utils/SessionManager';
 
 import NavigationDrawer from '../components/NavigationDrawer';
 import BottomNavigation from '../components/BottomNavigation';
@@ -31,8 +32,51 @@ const DashboardScreen = ({ navigation, route }) => {
   const { refreshTrigger } = useDashboard();
   const [searchText, setSearchText] = useState('');
   const [drawerVisible, setDrawerVisible] = useState(false);
+  const [sessionValid, setSessionValid] = useState(true);
+
+  // Session validation using SessionManager
+  const validateSessionAccess = async () => {
+    try {
+      const sessionStatus = await SessionManager.validateDashboardAccess(user);
+      
+      if (!sessionStatus.valid) {
+        SessionManager.showSessionExpiredDialog(sessionStatus, navigation, logout);
+        setSessionValid(false);
+        return false;
+      }
+
+      // Update session timestamp for valid sessions
+      if (sessionStatus.valid) {
+        await SessionManager.updateSessionTimestamp(user);
+      }
+
+      return true;
+    } catch (error) {
+      console.log('Session validation error:', error);
+      Alert.alert(
+        'Session Error',
+        'Unable to verify your session. Please log in again.',
+        [{ 
+          text: 'Go to Login', 
+          onPress: () => {
+            logout();
+            navigation.reset({
+              index: 0,
+              routes: [{ name: 'Welcome' }],
+            });
+          }
+        }],
+        { cancelable: false }
+      );
+      setSessionValid(false);
+      return false;
+    }
+  };
 
   useEffect(() => {
+    // Validate session access on component mount
+    validateSessionAccess();
+    
     // Show welcome message if provided via route params
     if (route?.params?.welcomeMessage) {
       setTimeout(() => {
@@ -40,6 +84,30 @@ const DashboardScreen = ({ navigation, route }) => {
       }, 500);
     }
   }, []);
+
+  useEffect(() => {
+    // Re-validate session when user changes
+    if (user) {
+      validateSessionAccess();
+    }
+  }, [user]);
+
+  // Don't render dashboard content if session is invalid
+  if (!sessionValid) {
+    return (
+      <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+        <View style={styles.sessionExpiredContainer}>
+          <MaterialIcons name="lock-clock" size={64} color={theme.colors.error} />
+          <Text style={[styles.sessionExpiredTitle, { color: theme.colors.error }]}>
+            Session Expired
+          </Text>
+          <Text style={[styles.sessionExpiredMessage, { color: theme.colors.text }]}>
+            Please log in again to continue
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   const handleSearch = (text) => {
     setSearchText(text);
@@ -723,6 +791,26 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#666',
     marginBottom: 3,
+  },
+  // Session expired styles
+  sessionExpiredContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  sessionExpiredTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginTop: 20,
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  sessionExpiredMessage: {
+    fontSize: 16,
+    textAlign: 'center',
+    lineHeight: 24,
+    opacity: 0.8,
   },
 
 });

@@ -143,6 +143,26 @@ const SavedAccountsScreen = ({ navigation }) => {
     navigation.navigate('QRScanner');
   };
 
+  const handleShowAccountDetails = () => {
+    if (!accounts || accounts.length === 0) {
+      Alert.alert('No Accounts', 'No saved accounts found.');
+      return;
+    }
+
+    let details = 'Saved Accounts Details:\\n\\n';
+    accounts.forEach((account, index) => {
+      const user = account.user || account;
+      details += `${index + 1}. Username: ${user.username || 'Unknown'}\\n`;
+      details += `   Email: ${user.email || 'No email'}\\n`;
+      details += `   ID: ${user.id || 'Unknown'}\\n`;
+      details += `   Last Login: ${account.lastLogin ? new Date(account.lastLogin).toLocaleDateString() : 'Never'}\\n\\n`;
+    });
+
+    details += 'Tip: Keep only the account that works with QR scanning. Remove others using the red trash icon on each card.';
+
+    Alert.alert('Account Details', details, [{ text: 'OK' }]);
+  };
+
   const handleClearAllAccounts = () => {
     Alert.alert(
       'Clear All Accounts',
@@ -164,6 +184,8 @@ const SavedAccountsScreen = ({ navigation }) => {
   const AccountCard = ({ account }) => {
     const user = account.user || account;
     const isLoading = switchingAccountId === (user.id || account.id);
+
+
     
     return (
       <Animatable.View 
@@ -171,12 +193,13 @@ const SavedAccountsScreen = ({ navigation }) => {
         duration={600}
         style={styles.accountCard}
       >
-        <TouchableOpacity
-          style={[styles.accountButton, isLoading && styles.accountButtonLoading]}
-          onPress={() => handleAccountSelect(account)}
-          disabled={loading}
-          activeOpacity={0.7}
-        >
+        <View style={styles.accountCardContainer}>
+          <TouchableOpacity
+            style={[styles.accountButton, isLoading && styles.accountButtonLoading]}
+            onPress={() => handleAccountSelect(account)}
+            disabled={loading}
+            activeOpacity={0.7}
+          >
             <View style={styles.accountInfo}>
               <View style={styles.avatarContainer}>
                 <View style={styles.avatar}>
@@ -187,16 +210,13 @@ const SavedAccountsScreen = ({ navigation }) => {
               </View>
               
               <View style={styles.accountDetails}>
-              <Text style={styles.accountName}>
-                {user.username || user.name || 'Unknown User'}
-              </Text>
-              <Text style={styles.accountEmail}>
-                {user.email || 'No email'}
-              </Text>
-              <Text style={styles.accountId}>
-                ID: {user.id || 'Unknown'}
-              </Text>
-            </View>
+                <Text style={styles.accountName}>
+                  {user.username || user.name || 'Unknown User'}
+                </Text>
+                <Text style={styles.accountRole}>
+                  {user.username && user.username.toLowerCase().includes('demo') ? 'Demo Account' : 'Employee Account'}
+                </Text>
+              </View>
           </View>
           
           <View style={styles.accountAction}>
@@ -210,12 +230,17 @@ const SavedAccountsScreen = ({ navigation }) => {
             ) : (
               <View style={styles.loginHint}>
                 <Ionicons name="flash" size={16} color="#28a745" />
-                <Text style={styles.quickLoginText}>Quick Access</Text>
+                <Text style={styles.quickLoginText}>
+                  {user.username && user.username.toLowerCase().includes('demo') ? 'Demo Account ✓' : 'Quick Access'}
+                </Text>
                 <Ionicons name="chevron-forward" size={20} color="#667eea" />
               </View>
             )}
           </View>
         </TouchableOpacity>
+
+        {/* Delete Button */}
+        </View>
       </Animatable.View>
     );
   };
@@ -272,20 +297,7 @@ const SavedAccountsScreen = ({ navigation }) => {
                   />
                 ))}
 
-                <Animatable.View 
-                  animation="fadeInUp" 
-                  duration={600}
-                  delay={400}
-                  style={styles.actionsContainer}
-                >
-                  <TouchableOpacity
-                    style={styles.clearButton}
-                    onPress={handleClearAllAccounts}
-                  >
-                    <Ionicons name="trash-outline" size={20} color="#ff4757" />
-                    <Text style={styles.clearButtonText}>Clear All Accounts</Text>
-                  </TouchableOpacity>
-                </Animatable.View>
+
               </>
             ) : (
               <Animatable.View 
@@ -313,13 +325,18 @@ const SavedAccountsScreen = ({ navigation }) => {
             <TouchableOpacity
               style={styles.addAccountButton}
               onPress={handleAddNewAccount}
-              activeOpacity={0.8}
+              activeOpacity={0.9}
             >
-              <Ionicons name="qr-code" size={24} color="#667eea" />
-              <Text style={styles.addAccountText}>Register New Account (Scan QR)</Text>
+              <LinearGradient
+                colors={['#667eea', '#764ba2']}
+                style={styles.addAccountGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+              >
+                <Ionicons name="qr-code-outline" size={24} color="#ffffff" />
+                <Text style={styles.addAccountText}>Register New Account</Text>
+              </LinearGradient>
             </TouchableOpacity>
-
-
           </Animatable.View>
         </View>
       </SafeAreaView>
@@ -449,14 +466,11 @@ const styles = StyleSheet.create({
     color: '#333',
     marginBottom: 4,
   },
-  accountEmail: {
+  accountRole: {
     fontSize: 14,
-    color: '#666',
-    marginBottom: 2,
-  },
-  accountId: {
-    fontSize: 12,
-    color: '#999',
+    color: '#667eea',
+    fontWeight: '500',
+    marginTop: 2,
   },
   accountAction: {
     marginLeft: 10,
@@ -480,47 +494,31 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     paddingHorizontal: 20,
   },
-  actionsContainer: {
-    marginTop: 30,
-    alignItems: 'center',
-  },
-  clearButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 8,
-    backgroundColor: 'rgba(255, 71, 87, 0.1)',
-  },
-  clearButtonText: {
-    marginLeft: 8,
-    fontSize: 16,
-    color: '#ff4757',
-    fontWeight: '600',
-  },
+
   bottomContainer: {
     padding: 20,
   },
   addAccountButton: {
-    backgroundColor: '#ffffff',
-    borderRadius: 25,
-    paddingVertical: 15,
-    paddingHorizontal: 30,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 5,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.3,
-    shadowRadius: 5,
+    borderRadius: 15,
     marginHorizontal: 20,
+    elevation: 6,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
   },
-
+  addAccountGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 18,
+    paddingHorizontal: 30,
+    borderRadius: 15,
+  },
   addAccountText: {
-    marginLeft: 10,
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#667eea',
+    fontWeight: '600',
+    color: '#ffffff',
+    marginLeft: 10,
   },
   loadingContainer: {
     alignItems: 'center',
@@ -544,6 +542,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 4,
     fontWeight: '500',
   },
+
 });
 
 export default SavedAccountsScreen;

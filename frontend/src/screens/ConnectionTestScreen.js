@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert } from 'react-native';
 import nestjsApiService from '../services/nestjsApiService';
+import { getBaseURL } from '../config/apiConfig.js';
 
 const ConnectionTestScreen = ({ navigation }) => {
   const [testResults, setTestResults] = useState([]);
@@ -88,7 +89,7 @@ const ConnectionTestScreen = ({ navigation }) => {
   return (
     <ScrollView style={styles.container}>
       <Text style={styles.title}>Backend Connection Test</Text>
-      <Text style={styles.subtitle}>NestJS Backend: http://192.168.1.55:3001/api/v1</Text>
+      <Text style={styles.subtitle}>NestJS Backend: {getBaseURL()}</Text>
 
       <View style={styles.buttonContainer}>
         <TouchableOpacity 

@@ -14,7 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../context/ThemeContext';
 import BottomNavigation from '../components/BottomNavigation';
-import apiService from '../services/apiService';
+import nestjsApiService from '../services/nestjsApiService';
 
 const { width } = Dimensions.get('window');
 
@@ -44,8 +44,8 @@ const ApprovalsHubScreen = ({ navigation }) => {
   const loadApprovalsData = async () => {
     try {
       const [iouResponse, proofResponse] = await Promise.all([
-        apiService.getIOUs().catch(() => ({ data: { ious: [] } })),
-        apiService.getProofs().catch(() => ({ data: { data: [] } })),
+        nestjsApiService.getIOUs ? nestjsApiService.getIOUs().catch(() => ({ data: { data: [] } })) : Promise.resolve({ data: { data: [] } }),
+        nestjsApiService.getProofs ? nestjsApiService.getProofs().catch(() => ({ data: { data: [] } })) : Promise.resolve({ data: { data: [] } }),
       ]);
 
       const ious = iouResponse.data?.ious || iouResponse.data?.data || [];

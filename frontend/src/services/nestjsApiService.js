@@ -1,28 +1,45 @@
-// NEW NestJS Backend Configuration - Separate from existing mobile-backend
+// NEW NestJS Backend Configuration - Centralized Configuration
 // This is a completely separate implementation for the new NestJS project
 
-const NESTJS_BACKEND_URL = 'http://192.168.1.55:3001/api/v1';
+import { API_BASE_URL, getBaseURL } from '../config/apiConfig.js';
+import * as SecureStore from 'expo-secure-store';
 
 // Separate NestJS API Service - does not interfere with existing apiService.js
 class NestJSApiService {
   constructor() {
-    this.baseURL = NESTJS_BACKEND_URL;
+    this.baseURL = getBaseURL();
     this.token = null;
-    console.log('🆕 NestJS API Service initialized for:', this.baseURL);
+    console.log('NestJS API Service initialized for:', this.baseURL);
   }
 
   async setAuthToken(token) {
     this.token = token;
-    console.log('🔐 NestJS Service: Token set');
+    console.log('NestJS Service: Token set');
   }
 
-  getAuthHeaders() {
+  async getAuthHeaders() {
     const headers = {
       'Content-Type': 'application/json',
     };
     
-    if (this.token) {
-      headers.Authorization = `Bearer ${this.token}`;
+    // Try to get token from SecureStore first, then fallback to this.token
+    try {
+      const storedToken = await SecureStore.getItemAsync('accessToken');
+      if (storedToken) {
+        headers.Authorization = `Bearer ${storedToken}`;
+        console.log('🔐 Token present: YES');
+      } else if (this.token) {
+        headers.Authorization = `Bearer ${this.token}`;
+        console.log('🔐 Token present: YES (from memory)');
+      } else {
+        console.log('🔐 Token present: NO');
+      }
+    } catch (error) {
+      console.error('❌ Error getting token from SecureStore:', error);
+      if (this.token) {
+        headers.Authorization = `Bearer ${this.token}`;
+        console.log('🔐 Token present: YES (fallback)');
+      }
     }
     
     return headers;
@@ -30,10 +47,11 @@ class NestJSApiService {
 
   async request(endpoint, options = {}) {
     const url = `${this.baseURL}${endpoint}`;
+    const authHeaders = await this.getAuthHeaders();
     const config = {
       ...options,
       headers: {
-        ...this.getAuthHeaders(),
+        ...authHeaders,
         ...options.headers,
       },
     };
@@ -44,6 +62,10 @@ class NestJSApiService {
       const data = await response.json();
 
       if (!response.ok) {
+        if (response.status === 401) {
+          console.error('❌ Unauthorized - authentication required');
+          throw new Error('Unauthorized');
+        }
         throw new Error(data.message || `Request failed with status ${response.status}`);
       }
 
@@ -91,8 +113,11 @@ class NestJSApiService {
   }
 
   async logout() {
+    // Make the logout API call FIRST (while we still have the auth token)
+    const response = await this.post('/auth/logout', {});
+    // THEN clear the token after successful logout
     this.token = null;
-    return this.post('/auth/logout', {});
+    return response;
   }
 
   async getProfile() {
@@ -167,6 +192,41 @@ class NestJSApiService {
 
   async deleteIOU(id) {
     return this.delete(`/iou/${id}`);
+  }
+
+  // =============================================================================
+  // APPROVALS METHODS
+  // =============================================================================
+
+  /**
+   * Get all approvals with filtering
+   */
+  async getApprovals(params = {}) {
+    try {
+      console.log('📋 Fetching approvals with params:', params);
+      
+      const queryString = new URLSearchParams(params).toString();
+      const endpoint = queryString ? `/approvals?${queryString}` : '/approvals';
+      
+      return this.get(endpoint);
+    } catch (error) {
+      console.error('❌ Get approvals error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get modules list for dropdown
+   */
+  async getModules() {
+    try {
+      console.log('📁 Fetching modules list');
+      
+      return this.get('/approvals/modules');
+    } catch (error) {
+      console.error('❌ Get modules error:', error);
+      throw error;
+    }
   }
 
   // Test connectivity

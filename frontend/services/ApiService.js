@@ -42,19 +42,19 @@ class ApiService {
     // Response interceptor for token refresh and error handling
     this.api.interceptors.response.use(
       (response) => {
-        console.log(`✅ API Response ${response.status}:`, response.config.url);
+        console.log(`API Response ${response.status}:`, response.config.url);
         return response;
       },
       async (error) => {
-        console.error('❌ API Error:', error.response?.status, error.response?.data?.message || error.message);
+        console.error('API Error:', error.response?.status, error.response?.data?.message || error.message);
         
         if (error.response?.status === 401) {
-          console.log('🔄 Token expired, attempting refresh...');
+          console.log('Token expired, attempting refresh...');
           const refreshResult = await this.handleTokenRefresh();
           
           if (refreshResult.success) {
             // Retry the original request with new token
-            console.log('🔁 Retrying original request with new token...');
+            console.log('Retrying original request with new token...');
             const originalRequest = error.config;
             const newToken = await SecureStore.getItemAsync(STORAGE_KEYS.ACCESS_TOKEN);
             originalRequest.headers.Authorization = `Bearer ${newToken}`;
@@ -73,11 +73,11 @@ class ApiService {
 
   async handleTokenRefresh() {
     try {
-      console.log('🔄 Attempting token refresh...');
+      console.log('Attempting token refresh...');
       const refreshToken = await SecureStore.getItemAsync(STORAGE_KEYS.REFRESH_TOKEN);
       
       if (!refreshToken) {
-        console.log('❌ No refresh token found');
+        console.log('No refresh token found');
         return { success: false };
       }
 
@@ -96,11 +96,11 @@ class ApiService {
       await SecureStore.setItemAsync(STORAGE_KEYS.ACCESS_TOKEN, accessToken);
       await SecureStore.setItemAsync(STORAGE_KEYS.REFRESH_TOKEN, newRefreshToken);
       
-      console.log('✅ Token refresh successful');
+      console.log('Token refresh successful');
       return { success: true };
       
     } catch (error) {
-      console.error('❌ Token refresh failed:', error.response?.data?.message || error.message);
+      console.error('Token refresh failed:', error.response?.data?.message || error.message);
       return { success: false };
     }
   }
@@ -113,7 +113,7 @@ class ApiService {
       await SecureStore.deleteItemAsync(STORAGE_KEYS.USER_DATA);
       console.log('✅ Tokens cleared successfully');
     } catch (error) {
-      console.error('❌ Error clearing tokens:', error);
+      console.error('Error clearing tokens:', error);
     }
   }
 

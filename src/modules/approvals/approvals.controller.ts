@@ -16,10 +16,25 @@ import { UpdateApprovalDto } from './dto/update-approval.dto';
 import { QueryApprovalDto } from './dto/query-approval.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
-@Controller('api/approvals')
+@Controller('approvals')
 @UseGuards(JwtAuthGuard)
 export class ApprovalsController {
   constructor(private readonly approvalsService: ApprovalsService) {}
+
+  @Get('modules')
+  async getModules() {
+    return this.approvalsService.getModules();
+  }
+
+  @Get('by-module/:moduleId')
+  async getApprovalsByModule(
+    @Param('moduleId') moduleId: string,
+    @Query() queryDto: QueryApprovalDto,
+    @Request() req
+  ) {
+    const userId = req.user?.id;
+    return this.approvalsService.getApprovalsByModule(moduleId, queryDto, userId);
+  }
 
   @Post()
   async create(@Body() createApprovalDto: CreateApprovalDto) {
@@ -78,8 +93,4 @@ export class ApprovalsController {
     return this.approvalsService.reject(id, userId, body.comments);
   }
 
-  @Get('modules/list')
-  async getModules() {
-    return this.approvalsService.getModules();
-  }
 }

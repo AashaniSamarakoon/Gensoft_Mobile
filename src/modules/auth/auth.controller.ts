@@ -78,7 +78,6 @@ export class AuthController {
    */
   @Post('quick-login')
   @HttpCode(HttpStatus.OK)
-  @UseGuards(QuickLoginGuard)
   async quickLogin(@Body() quickLoginDto: QuickLoginDto) {
     return this.authService.quickLogin(quickLoginDto);
   }
@@ -130,6 +129,16 @@ export class AuthController {
         sessionId: req.user.sessionId,
       },
     };
+  }
+
+  /**
+   * Recover user session - for when quick login fails due to corrupted state
+   * POST /api/v1/auth/recover-session
+   */
+  @Post('recover-session')
+  @HttpCode(HttpStatus.OK)
+  async recoverSession(@Body() body: { email: string }) {
+    return this.authService.recoverUserSession(body.email);
   }
 
   /**

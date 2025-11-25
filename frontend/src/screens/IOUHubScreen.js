@@ -35,9 +35,9 @@ const IOUHubScreen = ({ navigation }) => {
   const loadIOUStats = async () => {
     try {
       const [iouResponse, proofResponse, settlementResponse] = await Promise.all([
-        nestjsApiService.getIOUs().catch(() => ({ data: { data: [] } })),
-        nestjsApiService.getProofs().catch(() => ({ data: { data: [] } })),
-        nestjsApiService.getSettlements().catch(() => ({ data: { data: [] } })),
+        nestjsApiService.getIOUs ? nestjsApiService.getIOUs().catch(() => ({ data: { data: [] } })) : Promise.resolve({ data: { data: [] } }),
+        nestjsApiService.getProofs ? nestjsApiService.getProofs().catch(() => ({ data: { data: [] } })) : Promise.resolve({ data: { data: [] } }),
+        nestjsApiService.getSettlements ? nestjsApiService.getSettlements().catch(() => ({ data: { data: [] } })) : Promise.resolve({ data: { data: [] } }),
       ]);
 
       console.log('📋 IOUs Response:', JSON.stringify(iouResponse));

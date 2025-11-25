@@ -11,12 +11,14 @@ import {
   RefreshControl,
   Modal,
   FlatList,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../context/ThemeContext';
 import BottomNavigation from '../components/BottomNavigation';
 import nestjsApiService from '../services/nestjsApiService';
+import * as SecureStore from 'expo-secure-store';
 
 const ModuleBasedApprovalsScreen = ({ navigation }) => {
   const theme = useTheme();
@@ -61,12 +63,26 @@ const ModuleBasedApprovalsScreen = ({ navigation }) => {
   const loadInitialData = async () => {
     try {
       setLoading(true);
+      
+      // Check if user is authenticated before making API calls
+      const token = await SecureStore.getItemAsync('accessToken');
+      if (!token) {
+        console.log('⚠️ No authentication token found - skipping API calls');
+        setModules([{ id: 'ALL', displayName: 'ALL', name: 'all' }]);
+        setApprovals([]);
+        return;
+      }
+      
       await Promise.all([
         loadModules(),
         loadApprovals()
       ]);
     } catch (error) {
       console.error('Error loading initial data:', error);
+      
+      // Set default values on error
+      setModules([{ id: 'ALL', displayName: 'ALL', name: 'all' }]);
+      setApprovals([]);
     } finally {
       setLoading(false);
     }
@@ -74,17 +90,40 @@ const ModuleBasedApprovalsScreen = ({ navigation }) => {
 
   const loadModules = async () => {
     try {
-      const response = await nestjsApiService.get('/modules');
-      const modulesList = response.data?.data || response.data || [];
+      // Check authentication first
+      const token = await SecureStore.getItemAsync('accessToken');
+      if (!token) {
+        console.log('⚠️ No authentication token - cannot load modules');
+        setModules([{ id: 'ALL', displayName: 'ALL', name: 'all' }]);
+        return;
+      }
+      
+      const response = await nestjsApiService.getModules();
+      const modulesList = response.data || [];
       setModules([{ id: 'ALL', displayName: 'ALL', name: 'all' }, ...modulesList]);
     } catch (error) {
       console.error('Error loading modules:', error);
+      
+      // Handle specific error types
+      if (error.message?.includes('Unauthorized')) {
+        console.log('🔐 Authentication required for modules');
+      }
+      
       setModules([{ id: 'ALL', displayName: 'ALL', name: 'all' }]);
     }
   };
 
   const loadApprovals = async () => {
     try {
+      // Check authentication first
+      const token = await SecureStore.getItemAsync('accessToken');
+      if (!token) {
+        console.log('⚠️ No authentication token - cannot load approvals');
+        setApprovals([]);
+        setTotalCount(0);
+        return;
+      }
+      
       const params = {
         page: 1,
         limit: 50,
@@ -111,14 +150,25 @@ const ModuleBasedApprovalsScreen = ({ navigation }) => {
         params.refNo = refNo.trim();
       }
 
-      const response = await nestjsApiService.get('/approvals', { params });
-      const approvalsData = response.data?.data || response.data || [];
-      const total = response.data?.total || approvalsData.length;
+      const response = await nestjsApiService.getApprovals(params);
+      const approvalsData = response.data || response || [];
+      const total = response.total || approvalsData.length;
       
       setApprovals(Array.isArray(approvalsData) ? approvalsData : []);
       setTotalCount(total);
     } catch (error) {
       console.error('Error loading approvals:', error);
+      
+      // Handle specific error types
+      if (error.message?.includes('Unauthorized')) {
+        console.log('🔐 Authentication required - redirecting to login');
+        Alert.alert(
+          'Authentication Required',
+          'Please log in to view approvals.',
+          [{ text: 'OK' }]
+        );
+      }
+      
       setApprovals([]);
       setTotalCount(0);
     }

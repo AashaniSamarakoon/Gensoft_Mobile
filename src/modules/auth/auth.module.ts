@@ -9,6 +9,8 @@ import { AuthService } from './auth.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { QuickLoginGuard } from './guards/quick-login.guard';
+import { SavedAccountController } from './controllers/saved-account.controller';
+import { SavedAccountService } from './services/saved-account.service';
 
 import { MainERPMiddlewareService } from '../../services/main-erp-middleware.service';
 import { EmailService } from '../../services/email.service';
@@ -28,9 +30,10 @@ import { EmailService } from '../../services/email.service';
       inject: [ConfigService],
     }),
   ],
-  controllers: [AuthController],
+  controllers: [AuthController, SavedAccountController],
   providers: [
     AuthService,
+    SavedAccountService,
     JwtStrategy,
     JwtAuthGuard,
     QuickLoginGuard,

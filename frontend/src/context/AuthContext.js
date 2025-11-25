@@ -3,9 +3,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import apiService from '../services/apiService';
 import nestjsApiService from '../../services/nestjsApiService';
 import LocalStorageService from '../services/LocalStorageService';
+import { getBaseURLRaw } from '../config/apiConfig.js';
+import savedAccountsApi from '../services/SavedAccountsApiService';
 
-// Backend URL for combined backend+middleware server
-const MOBILE_BACKEND_URL = process.env.REACT_APP_NESTJS_BACKEND_URL || 'http://192.168.1.55:3001';
+// Backend URL for combined backend+middleware server - CENTRALIZED CONFIG
 
 const AuthContext = createContext();
 
@@ -34,6 +35,21 @@ export const AuthProvider = ({ children }) => {
     try {
       console.log('🔄 Initializing authentication...');
       
+      // First, validate storage integrity and cleanup corrupted data
+      try {
+        console.log('🔍 Checking AsyncStorage integrity...');
+        const isValid = await LocalStorageService.validateStorageIntegrity();
+        
+        if (!isValid) {
+          console.warn('⚠️ Storage integrity issues detected, running cleanup...');
+          await LocalStorageService.cleanupCorruptedData();
+        }
+      } catch (error) {
+        console.error('❌ Storage validation error:', error);
+        // Run cleanup anyway to be safe
+        await LocalStorageService.cleanupCorruptedData();
+      }
+      
       // Load saved accounts list
       try {
         const savedAccounts = await LocalStorageService.getItem('@saved_accounts');
@@ -42,7 +58,7 @@ export const AuthProvider = ({ children }) => {
           console.log('📋 Loaded', savedAccounts.length, 'saved accounts');
         }
       } catch (error) {
-        console.log('ℹ️ No saved accounts found');
+        console.log('ℹ️ No saved accounts found or corrupted data cleaned');
       }
       
       // Just finish loading - don't auto-authenticate
@@ -141,17 +157,14 @@ export const AuthProvider = ({ children }) => {
       // Call backend logout to reset user's database state
       if (currentUser) {
         try {
-          console.log('📡 Calling backend logout API...');
-          const logoutResponse = await fetch(`${MOBILE_BACKEND_URL}/api/auth/logout`, {
+          console.log('Calling backend logout API...');
+          const authToken = await LocalStorageService.getItem('@auth_token');
+          const logoutResponse = await fetch(`${getBaseURLRaw()}/api/v1/auth/logout`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              userId: currentUserId,
-              email: currentUserEmail,
-              employeeId: currentEmployeeId
-            })
+              'Authorization': `Bearer ${authToken}`
+            }
           });
 
           const logoutResult = await logoutResponse.json();
@@ -219,30 +232,81 @@ export const AuthProvider = ({ children }) => {
     setHasLoggedOut(false);
   };
 
-  // Smart login functions
+  // Smart login functions with enhanced session validation
   const checkLoginSecurity = (lastLogin) => {
-    if (!lastLogin) return { needsPassword: true, reason: 'No previous login found' };
+    if (!lastLogin) return { needsPassword: true, reason: 'No previous login found', type: 'missing_session' };
 
     const lastLoginDate = new Date(lastLogin);
     const now = new Date();
     const daysSinceLogin = (now - lastLoginDate) / (1000 * 60 * 60 * 24);
     const hoursSinceLogin = (now - lastLoginDate) / (1000 * 60 * 60);
 
-    // Security conditions
+    // Security conditions with enhanced messaging
     if (daysSinceLogin >= 7) {
-      return { needsPassword: true, reason: 'Last login was more than 7 days ago' };
+      return { 
+        needsPassword: true, 
+        reason: 'Last login was more than 7 days ago', 
+        type: 'extended_absence',
+        days: Math.floor(daysSinceLogin)
+      };
     }
     
     if (daysSinceLogin >= 3) {
-      return { needsPassword: true, reason: 'Last login was more than 3 days ago' };
+      return { 
+        needsPassword: true, 
+        reason: 'Last login was more than 3 days ago', 
+        type: 'session_expired',
+        days: Math.floor(daysSinceLogin)
+      };
     }
     
     if (hoursSinceLogin >= 24) {
-      return { needsPassword: true, reason: 'Last login was more than 24 hours ago' };
+      return { 
+        needsPassword: true, 
+        reason: 'Last login was more than 24 hours ago', 
+        type: 'daily_timeout',
+        hours: Math.floor(hoursSinceLogin)
+      };
     }
 
     // If login was recent (within 24 hours), allow quick access
-    return { needsPassword: false, reason: 'Recent login within security window' };
+    return { 
+      needsPassword: false, 
+      reason: 'Recent login within security window', 
+      type: 'valid_session',
+      hours: Math.floor(hoursSinceLogin)
+    };
+  };
+
+  // New function to validate current session for dashboard access
+  const validateDashboardAccess = async () => {
+    try {
+      if (!user) {
+        return { valid: false, reason: 'No authenticated user found' };
+      }
+
+      const sessionData = await LocalStorageService.getItem(`@session_${user.id}`);
+      
+      if (!sessionData || !sessionData.loginTime) {
+        return { valid: false, reason: 'No login session found' };
+      }
+
+      const securityCheck = checkLoginSecurity(sessionData.loginTime);
+      
+      if (securityCheck.needsPassword) {
+        return {
+          valid: false,
+          reason: securityCheck.reason,
+          type: securityCheck.type,
+          lastLogin: sessionData.loginTime
+        };
+      }
+
+      return { valid: true, reason: 'Session is valid' };
+    } catch (error) {
+      console.log('Dashboard access validation error:', error);
+      return { valid: false, reason: 'Session validation failed' };
+    }
   };
 
   const quickLogin = async (account) => {
@@ -299,6 +363,20 @@ export const AuthProvider = ({ children }) => {
         });
 
         if (!quickLoginData.success) {
+          // Check if it's a specific error that requires password login
+          if (quickLoginData.message && (
+            quickLoginData.message.includes('not available') ||
+            quickLoginData.message.includes('expired') ||
+            quickLoginData.message.includes('not found')
+          )) {
+            console.log('🔐 Quick login expired, password required');
+            return { 
+              success: false, 
+              needsPassword: true, 
+              reason: 'Session expired, please enter password',
+              account: account 
+            };
+          }
           throw new Error('Quick login not available: ' + quickLoginData.message);
         }
 
@@ -355,10 +433,24 @@ export const AuthProvider = ({ children }) => {
 
     } catch (error) {
       console.error('❌ Quick login error:', error);
+      
+      // Check if it's a JSON parsing error or storage corruption
+      if (error.message && error.message.includes('JSON')) {
+        console.warn('🧹 Storage corruption detected, cleaning up...');
+        try {
+          await LocalStorageService.cleanupCorruptedData();
+          await LocalStorageService.removeItem(`@session_${account.user?.id || account.id}`);
+        } catch (cleanupError) {
+          console.error('Cleanup failed:', cleanupError);
+        }
+      }
+      
       return { 
         success: false, 
         needsPassword: true, 
-        reason: 'Security check failed, please enter password',
+        reason: error.message && error.message.includes('JSON') ? 
+          'Data corruption detected - please login with password to restore access' :
+          'Session expired, please enter password',
         account: account 
       };
     } finally {
@@ -419,9 +511,57 @@ export const AuthProvider = ({ children }) => {
   };
 
   const clearAccounts = async () => {
+    // Clear local storage
     setAccounts([]);
     await LocalStorageService.removeItem('@saved_accounts');
-    console.log('🗑️ Cleared all saved accounts');
+    
+    // Also clear from database
+    try {
+      await savedAccountsApi.clearDeviceAccounts();
+      console.log('🗑️ Cleared all saved accounts (local + database)');
+    } catch (dbError) {
+      console.log('🗑️ Cleared local accounts (database clear failed):', dbError);
+    }
+  };
+
+  // Remove specific account by username or ID
+  const removeSpecificAccount = async (accountToRemove) => {
+    try {
+      const accountId = accountToRemove.user?.id || accountToRemove.id;
+      const accountUsername = accountToRemove.user?.username || accountToRemove.username;
+      
+      console.log('🗑️ Removing account:', accountUsername, 'ID:', accountId);
+      
+      // Filter out the account to remove (LOCAL STORAGE)
+      const updatedAccounts = accounts.filter(acc => {
+        const accId = acc.user?.id || acc.id;
+        const accUsername = acc.user?.username || acc.username;
+        return accId !== accountId && accUsername !== accountUsername;
+      });
+      
+      // Update state and localStorage
+      setAccounts(updatedAccounts);
+      await LocalStorageService.setItem('@saved_accounts', updatedAccounts);
+      
+      // Also remove the session data for this account
+      await LocalStorageService.removeItem(`@session_${accountId}`);
+      
+      // ALSO REMOVE FROM DATABASE if it's the current user
+      if (user && user.id === accountId) {
+        try {
+          await savedAccountsApi.removeAccountFromDatabase();
+          console.log('✅ Account also removed from database');
+        } catch (dbError) {
+          console.log('⚠️ Failed to remove from database (continuing with local removal):', dbError);
+        }
+      }
+      
+      console.log('✅ Account removed successfully. Remaining accounts:', updatedAccounts.length);
+      return true;
+    } catch (error) {
+      console.log('❌ Error removing account:', error);
+      return false;
+    }
   };
 
   // Debug function to show current accounts
@@ -623,6 +763,8 @@ export const AuthProvider = ({ children }) => {
     quickLogin,
     checkLoginSecurity,
     saveAccountSession,
+    validateDashboardAccess,
+    removeSpecificAccount,
   };
 
   return (

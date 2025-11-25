@@ -1,9 +1,10 @@
-// API Service - Connects to Combined Backend+Middleware Server (Port 3000)
-const MOBILE_BACKEND_URL = process.env.REACT_APP_NESTJS_BACKEND_URL || 'http://192.168.1.55:3001';
+// API Service - Connects to Combined Backend+Middleware Server - CENTRALIZED CONFIG
+import { API_BASE_URL_RAW, getBaseURLRaw } from '../config/apiConfig.js';
+import LocalStorageService from './LocalStorageService';
 
 class ApiService {
   constructor() {
-    this.baseURL = MOBILE_BACKEND_URL;
+    this.baseURL = getBaseURLRaw();
     this.token = null;
     // Initialize token asynchronously
     this.initializeToken().catch(error => {
@@ -15,7 +16,7 @@ class ApiService {
     // Try to restore token from AsyncStorage
     try {
       const AsyncStorage = require('@react-native-async-storage/async-storage').default;
-      const storedToken = await AsyncStorage.getItem('@auth_token');
+      const storedToken = await LocalStorageService.getItem('@auth_token');
       if (storedToken) {
         this.token = storedToken;
         console.log('🔐 Restored auth token from AsyncStorage');
@@ -30,12 +31,11 @@ class ApiService {
     this.token = token;
     
     try {
-      const AsyncStorage = require('@react-native-async-storage/async-storage').default;
       if (token) {
         // Also update AsyncStorage to ensure consistency
-        await AsyncStorage.setItem('@auth_token', token);
+        await LocalStorageService.setItem('@auth_token', token);
       } else {
-        await AsyncStorage.removeItem('@auth_token');
+        await LocalStorageService.removeItem('@auth_token');
       }
     } catch (error) {
       console.error('Error saving token to AsyncStorage:', error);
@@ -100,8 +100,7 @@ class ApiService {
         // Clear invalid token
         this.token = null;
         try {
-          const AsyncStorage = require('@react-native-async-storage/async-storage').default;
-          await AsyncStorage.removeItem('@auth_token');
+          await LocalStorageService.removeItem('@auth_token');
         } catch (error) {
           console.error('Error removing token from AsyncStorage:', error);
         }

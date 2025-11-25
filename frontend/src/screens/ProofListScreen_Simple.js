@@ -14,7 +14,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../context/AuthContext';
-import apiService from '../services/apiService';
+import nestjsApiService from '../services/nestjsApiService';
 
 const ProofListScreen = ({ navigation }) => {
   const { user } = useAuth();
@@ -30,9 +30,14 @@ const ProofListScreen = ({ navigation }) => {
     try {
       setLoading(true);
       console.log('🔄 Loading proofs...');
-      const response = await apiService.getProofs();
-      console.log('📋 Proofs response:', response);
-      setProofs(response?.data || []);
+      if (nestjsApiService.getProofs) {
+        const response = await nestjsApiService.getProofs();
+        console.log('📋 Proofs response:', response);
+        setProofs(response?.data || []);
+      } else {
+        console.log('⚠️ getProofs method not available');
+        setProofs([]);
+      }
     } catch (error) {
       console.error('❌ Error loading proofs:', error);
       Alert.alert('Error', 'Failed to load proofs: ' + error.message);

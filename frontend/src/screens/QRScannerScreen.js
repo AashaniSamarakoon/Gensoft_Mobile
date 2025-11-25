@@ -11,11 +11,14 @@ import {
   SafeAreaView,
   StatusBar,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
+import { getBaseURL } from '../config/apiConfig.js';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import LocalStorageService from '../services/LocalStorageService';
 
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -144,11 +147,10 @@ const QRScannerScreen = ({ navigation, route }) => {
         }
       );
 
-      console.log('🖼️ Image processed, sending to server for QR detection...');
+      console.log('Image processed, sending to server for QR detection...');
 
-      // Send the image to server for QR code detection
-      const backendUrl = process.env.REACT_APP_NESTJS_BACKEND_URL || 'http://192.168.1.55:3001';
-      const response = await fetch(`${backendUrl}/api/v1/auth/scan-qr`, {
+      // Send the image to server for QR code detection - CENTRALIZED CONFIG
+      const response = await fetch(`${getBaseURL()}/auth/scan-qr`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -204,12 +206,13 @@ const QRScannerScreen = ({ navigation, route }) => {
     try {
       setLoading(true);
       
-      // Call logout endpoint to clear user session/password
-      const backendUrl = process.env.REACT_APP_NESTJS_BACKEND_URL || 'http://192.168.1.55:3001';
-      const logoutResponse = await fetch(`${backendUrl}/api/v1/auth/logout`, {
+      // Call logout endpoint to clear user session/password - CENTRALIZED CONFIG
+      const authToken = await LocalStorageService.getItem('@auth_token');
+      const logoutResponse = await fetch(`${getBaseURL()}/auth/logout`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`,
         },
         body: JSON.stringify({
           email: userInfo.email,

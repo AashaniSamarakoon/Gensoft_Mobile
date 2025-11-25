@@ -43,9 +43,11 @@ model MobileAppUser {
   // Account status
   isActive          Boolean          @default(true)
   isRegistered      Boolean          @default(false) // Completed full registration process
+  isLoggedOut       Boolean          @default(false) // User has explicitly logged out
   
   // Security settings
   lastLoginAt       DateTime?
+  lastLogoutAt      DateTime?        // Track when user logged out
   lastPasswordCheck DateTime?
   requiresReauth    Boolean          @default(false) // Force re-authentication
   
@@ -59,6 +61,7 @@ model MobileAppUser {
   // Relations
   sessions          UserSession[]
   refreshTokens     RefreshToken[]
+  savedAccounts     SavedAccount[]  // Devices that have this user saved
   createdIOUs       IOU[]          @relation("CreatedBy")
   receivedIOUs      IOU[]          @relation("ReceivedBy")
 
@@ -357,4 +360,42 @@ enum TaskStatus {
   COMPLETED
   CANCELLED
   ON_HOLD
+}
+
+// New model for tracking saved accounts with device details
+model SavedAccount {
+  id              String    @id @default(cuid())
+  userId          String    // Reference to MobileAppUser.id
+  user            MobileAppUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Device Information
+  deviceId        String    // Unique device identifier
+  deviceName      String?   // Device name/model
+  deviceType      String?   // iOS/Android/Web
+  deviceOS        String?   // Operating system version
+  appVersion      String?   // App version when saved
+  
+  // Login History
+  firstSavedAt    DateTime  @default(now())
+  lastAccessedAt  DateTime  @default(now())
+  accessCount     Int       @default(1)
+  
+  // Device Settings
+  biometricEnabled Boolean  @default(false)
+  quickLoginEnabled Boolean @default(true)
+  
+  // Security
+  lastTokenRefresh DateTime?
+  isActive        Boolean   @default(true)
+  
+  // Metadata
+  userAgent       String?   // Browser/app user agent
+  ipAddress       String?   // IP address when saved
+  location        String?   // General location (city/country)
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  @@unique([userId, deviceId]) // One record per user per device
+  @@map("saved_accounts")
 }

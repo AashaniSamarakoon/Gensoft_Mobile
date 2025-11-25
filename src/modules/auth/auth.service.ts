@@ -18,6 +18,7 @@ import { ScanQRCodeDto } from './dto/scan-qr.dto';
 import { VerifyEmailDto } from './dto/verify-email.dto';
 import { VerifyPasswordDto, SetMobilePasswordDto } from './dto/verify-password.dto';
 import { LoginDto, QuickLoginDto, RefreshTokenDto } from './dto/login.dto';
+import { SavedAccountService, DeviceInfo } from './services/saved-account.service';
 
 @Injectable()
 export class AuthService {
@@ -29,6 +30,7 @@ export class AuthService {
     private configService: ConfigService,
     private mainERPMiddleware: MainERPMiddlewareService,
     private emailService: EmailService,
+    private savedAccountService: SavedAccountService,
   ) {}
 
   /**
@@ -94,21 +96,43 @@ export class AuthService {
       
       this.logger.log(`Database query result: ${existingUser ? 'Found user' : 'No user found'}`);
       if (existingUser) {
-        this.logger.log(`Found user: ${existingUser.username}, isRegistered: ${existingUser.isRegistered}`);
+        this.logger.log(`Found user: ${existingUser.username}, isRegistered: ${existingUser.isRegistered}, isLoggedOut: ${existingUser.isLoggedOut}`);
+        this.logger.log(`User state - Active: ${existingUser.isActive}, Last logout: ${existingUser.lastLogoutAt}`);
       }
       
-      if (existingUser && existingUser.isRegistered) {
-        this.logger.log('❌ User already registered - blocking QR scan');
+      // Check if user exists and is currently active (registered AND not logged out)
+      if (existingUser && existingUser.isRegistered && !existingUser.isLoggedOut) {
+        this.logger.log('❌ User already registered and active - blocking QR scan');
         return {
           success: false,
           alreadyRegistered: true,
-          message: `User ${existingUser.username} is already registered. Please use login instead.`,
+          message: `User ${existingUser.username} is already registered and active. Please use login instead.`,
           data: {
             username: existingUser.username,
             email: existingUser.email,
             employeeId: existingUser.mainErpUserId
           }
         };
+      }
+
+      // If user exists but is logged out, allow them to re-register
+      if (existingUser && existingUser.isLoggedOut) {
+        this.logger.log('✅ User exists but is logged out - allowing QR re-registration');
+        this.logger.log(`🔄 Resetting user ${existingUser.username} for fresh registration`);
+        // Reset their registration status to allow fresh registration
+        await this.prisma.mobileAppUser.update({
+          where: { id: existingUser.id },
+          data: {
+            isRegistered: false,
+            isLoggedOut: false,
+            mobilePassword: null, // Clear old password
+            lastLoginAt: null,
+            emailVerified: false,
+            passwordVerified: false,
+            lastLogoutAt: null, // Clear logout timestamp
+          }
+        });
+        this.logger.log('🔄 User reset for fresh registration - ready to proceed');
       }
 
       // Generate verification code (essential part)
@@ -383,6 +407,7 @@ export class AuthService {
           passwordVerified: true, 
           isRegistered: true,
           isActive: true,
+          isLoggedOut: false, // Clear logout flag on registration completion
           mobilePassword: hashedPassword, // Update password on subsequent registrations
         },
         create: {
@@ -396,6 +421,7 @@ export class AuthService {
           passwordVerified: true,
           isRegistered: true,
           isActive: true,
+          isLoggedOut: false, // Set logout flag to false for new users
         },
       });
 
@@ -488,13 +514,14 @@ export class AuthService {
       
       this.logger.log('Password verified successfully');
 
-      // Update user login time
-      this.logger.log('Step 3: Updating user login time...');
+      // Update user login time and clear logout flag
+      this.logger.log('Step 3: Updating user login time and clearing logout flag...');
       await this.prisma.mobileAppUser.update({
         where: { id: user.id },
         data: { 
           lastLoginAt: new Date(),
           lastPasswordCheck: new Date(),
+          isLoggedOut: false, // Clear the logout flag on successful login
         },
       });
       
@@ -519,11 +546,12 @@ export class AuthService {
    * Quick Login for returning users
    */
   async quickLogin(quickLoginDto: QuickLoginDto) {
-    const user = await this.prisma.mobileAppUser.findUnique({
+    this.logger.log(`=== QUICK LOGIN STARTED for user: ${quickLoginDto.userId} ===`);
+    
+    // First try to find the user with all conditions
+    let user = await this.prisma.mobileAppUser.findUnique({
       where: { 
         id: quickLoginDto.userId,
-        isActive: true,
-        isRegistered: true,
       },
       include: {
         sessions: {
@@ -538,32 +566,73 @@ export class AuthService {
       },
     });
 
-    if (!user || user.sessions.length === 0) {
-      throw new UnauthorizedException('Quick login not available');
+    this.logger.log(`User lookup result: ${user ? 'Found' : 'Not found'}`);
+    
+    if (!user) {
+      this.logger.log('❌ User not found in database - may have been deleted or corrupted');
+      throw new UnauthorizedException('User account not found - please scan QR code to re-register');
+    }
+
+    this.logger.log(`User state: isActive=${user.isActive}, isRegistered=${user.isRegistered}, isLoggedOut=${user.isLoggedOut}`);
+    this.logger.log(`Sessions found: ${user.sessions.length}`);
+    this.logger.log(`Last login: ${user.lastLoginAt}`);
+
+    // Check if user is active and registered
+    if (!user.isActive || !user.isRegistered) {
+      this.logger.log('❌ User is inactive or not registered');
+      throw new UnauthorizedException('Account inactive - please contact support or re-register');
+    }
+
+    // If user exists but has no active sessions, check if they were logged out
+    if (user.sessions.length === 0) {
+      if (user.isLoggedOut) {
+        this.logger.log('❌ User was logged out - quick login not available');
+        throw new UnauthorizedException('Session expired after logout - please enter your password to login');
+      } else {
+        this.logger.log('❌ No active sessions found for user');
+        throw new UnauthorizedException('No active session - please login with password to restore access');
+      }
     }
 
     // Check if re-authentication is required (24 hours)
     const lastLogin = user.lastLoginAt;
     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    
+    this.logger.log(`Last login check: ${lastLogin ? lastLogin.toISOString() : 'Never'}`);
+    this.logger.log(`24h threshold: ${twentyFourHoursAgo.toISOString()}`);
+    
+    const needsReauth = !lastLogin || lastLogin < twentyFourHoursAgo;
+    this.logger.log(`Needs re-authentication: ${needsReauth}`);
 
-    if (!lastLogin || lastLogin < twentyFourHoursAgo) {
+    if (needsReauth) {
       // Mark user as requiring re-authentication
       await this.prisma.mobileAppUser.update({
         where: { id: user.id },
         data: { requiresReauth: true },
       });
 
-      throw new UnauthorizedException('Re-authentication required - please login with password');
+      this.logger.log('❌ Re-authentication required due to 24h expiry');
+      throw new UnauthorizedException('Session expired (24h limit) - please login with password');
     }
 
-    // Update last login
+    // Update last login and clear logout flag
     await this.prisma.mobileAppUser.update({
       where: { id: user.id },
-      data: { lastLoginAt: new Date() },
+      data: { 
+        lastLoginAt: new Date(),
+        isLoggedOut: false, // Clear logout flag on successful quick login
+        requiresReauth: false, // Clear reauth flag on successful quick login
+        isActive: true, // Ensure user is active
+      },
     });
 
+    this.logger.log('✅ Quick login validation passed - generating new tokens');
+    
     // Generate new tokens and session
-    return this.generateTokensAndSession(user, quickLoginDto.deviceInfo);
+    const result = await this.generateTokensAndSession(user, quickLoginDto.deviceInfo);
+    
+    this.logger.log('=== QUICK LOGIN COMPLETED SUCCESSFULLY ===');
+    return result;
   }
 
   /**
@@ -652,13 +721,114 @@ export class AuthService {
   }
 
   /**
-   * Logout user
+   * Find user by email (for debug purposes)
+   */
+  async findUserByEmail(email: string) {
+    return this.prisma.mobileAppUser.findUnique({
+      where: { email }
+    });
+  }
+
+  /**
+   * Recover user session when quick login fails
+   */
+  async recoverUserSession(email: string) {
+    try {
+      this.logger.log(`=== USER RECOVERY STARTED for email: ${email} ===`);
+      
+      const user = await this.prisma.mobileAppUser.findUnique({
+        where: { email },
+        include: {
+          sessions: {
+            where: { isActive: true },
+            orderBy: { createdAt: 'desc' },
+            take: 5,
+          },
+        },
+      });
+
+      if (!user) {
+        this.logger.log('❌ User not found for recovery');
+        return {
+          success: false,
+          message: 'User not found. Please scan QR code to register.',
+          action: 'qr_registration_required',
+        };
+      }
+
+      this.logger.log(`Found user: ${user.username}, sessions: ${user.sessions.length}`);
+      
+      // Check if user needs to be restored
+      if (!user.isActive || !user.isRegistered) {
+        this.logger.log('🔧 Restoring user account status');
+        await this.prisma.mobileAppUser.update({
+          where: { id: user.id },
+          data: {
+            isActive: true,
+            isRegistered: true,
+            isLoggedOut: false,
+            requiresReauth: false,
+          },
+        });
+      }
+
+      // If user has active sessions, they can use quick login
+      if (user.sessions.length > 0) {
+        this.logger.log('✅ User has active sessions - quick login should work');
+        return {
+          success: true,
+          message: 'User session recovered. Quick login should now work.',
+          data: {
+            userId: user.id,
+            username: user.username,
+            email: user.email,
+            hasActiveSessions: true,
+            action: 'retry_quick_login',
+          },
+        };
+      } else {
+        this.logger.log('⚠️ No active sessions found - password login required');
+        return {
+          success: true,
+          message: 'User found but no active sessions. Please login with password.',
+          data: {
+            userId: user.id,
+            username: user.username,
+            email: user.email,
+            hasActiveSessions: false,
+            action: 'password_login_required',
+          },
+        };
+      }
+    } catch (error) {
+      this.logger.error(`Recovery failed: ${error.message}`);
+      return {
+        success: false,
+        message: 'Recovery failed. Please try scanning QR code again.',
+        action: 'qr_registration_required',
+      };
+    }
+  }
+
+  /**
+   * Logout user - Mark as logged out in DB and deactivate sessions
    */
   async logout(userId: string, sessionId?: string) {
+    this.logger.log(`=== LOGOUT STARTED for user: ${userId} ===`);
+    
     const whereClause: any = { userId };
     if (sessionId) {
       whereClause.sessionId = sessionId;
     }
+
+    // Mark user as logged out in the database
+    await this.prisma.mobileAppUser.update({
+      where: { id: userId },
+      data: {
+        isLoggedOut: true,
+        lastLogoutAt: new Date(),
+      },
+    });
 
     // Deactivate sessions and refresh tokens
     await Promise.all([
@@ -672,7 +842,16 @@ export class AuthService {
       }),
     ]);
 
-    return { success: true, message: 'Logged out successfully' };
+    // Also remove from saved accounts on this device
+    try {
+      await this.savedAccountService.removeUserFromAllDevices(userId);
+      this.logger.log('🗑️ User removed from all device saved accounts');
+    } catch (error) {
+      this.logger.warn('Failed to remove from saved accounts:', error.message);
+    }
+
+    this.logger.log('=== LOGOUT COMPLETED ===');
+    return { success: true, message: 'Logged out successfully - you can scan QR again to re-register' };
   }
 
   /**
@@ -737,6 +916,36 @@ export class AuthService {
         expiresAt: refreshTokenExpiry,
       },
     });
+
+    // Save account to device tracking (if device info provided)
+    if (deviceInfo?.deviceId) {
+      try {
+        const deviceInfoForSaving: DeviceInfo = {
+          deviceId: deviceInfo.deviceId,
+          deviceName: deviceInfo.deviceName,
+          deviceType: deviceInfo.deviceType,
+          deviceOS: deviceInfo.deviceOS,
+          appVersion: deviceInfo.appVersion,
+          userAgent: deviceInfo.userAgent,
+          ipAddress: deviceInfo.ipAddress,
+          location: deviceInfo.location,
+        };
+
+        await this.savedAccountService.saveAccountOnDevice(
+          user.id,
+          deviceInfoForSaving,
+          {
+            quickLoginEnabled: true,
+            biometricEnabled: deviceInfo.biometricEnabled || false,
+          }
+        );
+        
+        this.logger.log(`Account saved to device tracking: ${deviceInfo.deviceId}`);
+      } catch (error) {
+        this.logger.warn(`Failed to save account to device tracking: ${error.message}`);
+        // Don't fail the login if device tracking fails
+      }
+    }
 
     return {
       success: true,

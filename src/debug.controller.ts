@@ -1,7 +1,9 @@
-import { Controller, Post, Body } from '@nestjs/common';
+import { Controller, Post, Body, Inject } from '@nestjs/common';
+import { AuthService } from './modules/auth/auth.service';
 
 @Controller('debug')
 export class DebugController {
+  constructor(private readonly authService: AuthService) {}
   @Post('test-qr')
   testQR(@Body() body: any) {
     console.log('🔍 Debug - Received body:', JSON.stringify(body, null, 2));
@@ -58,6 +60,35 @@ export class DebugController {
         success: false,
         error: error.message,
         received: body
+      };
+    }
+  }
+
+  @Post('logout-user')
+  async debugLogoutUser(@Body() body: { email: string }) {
+    console.log('🔍 Debug - Logout user by email:', body.email);
+    
+    try {
+      // Find user by email first
+      const user = await this.authService.findUserByEmail(body.email);
+      if (!user) {
+        return { success: false, message: 'User not found' };
+      }
+
+      // Force logout the user
+      const result = await this.authService.logout(user.id);
+      
+      return {
+        success: true,
+        message: 'User logged out successfully',
+        data: result
+      };
+    } catch (error) {
+      console.error('Debug logout error:', error);
+      return {
+        success: false,
+        message: 'Logout failed',
+        error: error.message
       };
     }
   }

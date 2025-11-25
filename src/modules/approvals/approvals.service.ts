@@ -9,12 +9,107 @@ export class ApprovalsService {
   constructor(private prisma: PrismaService) {}
 
   async create(createApprovalDto: CreateApprovalDto) {
-    return this.prisma.approval.create({
+    // Validate module if provided
+    if (createApprovalDto.moduleId) {
+      const module = await this.prisma.module.findUnique({
+        where: { id: createApprovalDto.moduleId, isActive: true }
+      });
+      
+      if (!module) {
+        throw new Error('Invalid or inactive module specified');
+      }
+    }
+
+    const approval = await this.prisma.approval.create({
       data: {
         ...createApprovalDto,
         status: 'PENDING',
       },
+      include: {
+        module: {
+          select: {
+            id: true,
+            name: true,
+            displayName: true
+          }
+        }
+      }
     });
+
+    return {
+      success: true,
+      message: 'Approval created successfully',
+      data: approval
+    };
+  }
+
+  async getApprovalsByModule(moduleId: string, queryDto: QueryApprovalDto, userId?: string) {
+    const {
+      status,
+      itemType,
+      priority,
+      fromDate,
+      toDate,
+      page = 1,
+      limit = 10,
+      sortBy = 'createdAt',
+      sortOrder = 'desc',
+    } = queryDto;
+
+    const where: any = { moduleId };
+
+    if (status) where.status = status;
+    if (itemType) where.itemType = itemType;
+    if (priority) where.priority = priority;
+    
+    if (fromDate || toDate) {
+      where.createdAt = {};
+      if (fromDate) where.createdAt.gte = new Date(fromDate);
+      if (toDate) where.createdAt.lte = new Date(toDate);
+    }
+
+    // Filter by user - either requested by or assigned to
+    if (userId) {
+      where.OR = [
+        { requestedBy: userId },
+        { assignedTo: userId },
+      ];
+    }
+
+    const skip = (page - 1) * limit;
+
+    const [approvals, total, module] = await Promise.all([
+      this.prisma.approval.findMany({
+        where,
+        include: {
+          module: {
+            select: {
+              id: true,
+              name: true,
+              displayName: true
+            }
+          }
+        },
+        orderBy: { [sortBy]: sortOrder },
+        skip,
+        take: limit,
+      }),
+      this.prisma.approval.count({ where }),
+      this.prisma.module.findUnique({
+        where: { id: moduleId },
+        select: { id: true, name: true, displayName: true, description: true }
+      })
+    ]);
+
+    return {
+      success: true,
+      data: approvals,
+      module: module,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
   }
 
   async findAll(queryDto: QueryApprovalDto, userId?: string) {
@@ -108,13 +203,26 @@ export class ApprovalsService {
 
     const approval = await this.prisma.approval.findFirst({
       where,
+      include: {
+        module: {
+          select: {
+            id: true,
+            name: true,
+            displayName: true,
+            description: true
+          }
+        }
+      }
     });
 
     if (!approval) {
       throw new Error('Approval not found');
     }
 
-    return approval;
+    return {
+      success: true,
+      data: approval
+    };
   }
 
   async update(id: string, updateApprovalDto: UpdateApprovalDto, userId?: string) {
@@ -215,28 +323,31 @@ export class ApprovalsService {
 
   async getModules() {
     try {
-      // Try to get modules from the database
-      const modules = await this.prisma.$queryRaw`
-        SELECT id, name, displayName, description, sortOrder 
-        FROM modules 
-        WHERE isActive = 1 
-        ORDER BY sortOrder ASC
-      `;
-      return { success: true, data: modules };
-    } catch (error) {
-      // If there's an error (like table doesn't exist), return hardcoded modules
-      console.warn('Could not fetch modules from database, using fallback:', error.message);
+      // Get active modules from the database
+      const modules = await this.prisma.module.findMany({
+        where: { isActive: true },
+        select: {
+          id: true,
+          name: true,
+          displayName: true,
+          description: true,
+          sortOrder: true
+        },
+        orderBy: { sortOrder: 'asc' }
+      });
+
       return {
         success: true,
-        data: [
-          { id: 'all', name: 'all', displayName: 'All', description: 'All modules', sortOrder: 0 },
-          { id: 'employee', name: 'employee', displayName: 'Employee', description: 'Employee management', sortOrder: 1 },
-          { id: 'accounts', name: 'accounts', displayName: 'Accounts', description: 'Financial accounting', sortOrder: 2 },
-          { id: 'crm', name: 'crm', displayName: 'CRM', description: 'Customer relationship management', sortOrder: 3 },
-          { id: 'sea_import', name: 'sea_import', displayName: 'Sea Import', description: 'Sea freight import', sortOrder: 4 },
-          { id: 'sea_export', name: 'sea_export', displayName: 'Sea Export', description: 'Sea freight export', sortOrder: 5 },
-          { id: 'iou', name: 'iou', displayName: 'IOU', description: 'I Owe You management', sortOrder: 17 }
-        ]
+        data: modules,
+        total: modules.length
+      };
+    } catch (error) {
+      console.error('Error fetching modules:', error);
+      return {
+        success: false,
+        message: 'Failed to fetch modules',
+        error: error.message,
+        data: []
       };
     }
   }

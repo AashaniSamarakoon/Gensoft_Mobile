@@ -1,5 +1,6 @@
-// Centralized Backend Configuration
-// This replaces hardcoded URLs throughout the application
+// DEPRECATED: Use apiConfig.js instead
+// This file is kept for backward compatibility only
+// Please use ../config/apiConfig.js for new implementations
 
 // Get the backend URL from environment or use default
 const getBackendUrl = () => {

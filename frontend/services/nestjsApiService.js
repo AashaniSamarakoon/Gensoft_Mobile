@@ -1,14 +1,15 @@
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
+import { getBaseURL } from '../src/config/apiConfig.js';
 
 /**
  * NestJS API Service for Mobile App
- * Handles all API calls to the NestJS backend running on port 3001
+ * Handles all API calls to the NestJS backend - CENTRALIZED CONFIG
  */
 class NestJSApiService {
   constructor() {
-    // Use the backend URL for NestJS server
-    this.baseURL = 'http://192.168.1.55:3001/api/v1';
+    // Use the centralized backend URL configuration
+    this.baseURL = getBaseURL();
     
     // Create axios instance
     this.api = axios.create({
@@ -201,7 +202,76 @@ class NestJSApiService {
       return response.data;
     } catch (error) {
       console.error('❌ Quick login error:', error);
+      
+      // If quick login fails with specific errors, try to recover
+      if (error.response && error.response.status === 401) {
+        const errorMessage = error.response.data?.message || '';
+        
+        // Check if it's a user not found or session issue
+        if (errorMessage.includes('User account not found') || 
+            errorMessage.includes('Session expired') ||
+            errorMessage.includes('No active session')) {
+          
+          console.log('🔄 Attempting session recovery...');
+          try {
+            // Try to get user info from stored data
+            const userData = await this.getStoredUserData();
+            if (userData && userData.email) {
+              const recoveryResponse = await this.recoverUserSession(userData.email);
+              
+              if (recoveryResponse.success && recoveryResponse.data.action === 'retry_quick_login') {
+                console.log('✅ Session recovered, retrying quick login...');
+                // Retry the quick login with recovered session
+                const retryResponse = await this.api.post('/auth/quick-login', {
+                  userId: recoveryResponse.data.userId,
+                  deviceInfo: {
+                    deviceId: deviceInfo.deviceId || 'mobile_app',
+                    platform: deviceInfo.platform || 'react-native',
+                    version: deviceInfo.version || '1.0.0',
+                    model: deviceInfo.model || 'Mobile Device'
+                  }
+                });
+                return retryResponse.data;
+              } else {
+                // Recovery suggests password login is needed
+                throw new Error('Password login required - session could not be recovered');
+              }
+            }
+          } catch (recoveryError) {
+            console.error('❌ Session recovery failed:', recoveryError);
+          }
+        }
+      }
+      
       throw this.handleError(error);
+    }
+  }
+
+  /**
+   * Recover user session
+   */
+  async recoverUserSession(email) {
+    try {
+      console.log('🔄 Recovering user session for:', email);
+      const response = await this.api.post('/auth/recover-session', { email });
+      return response.data;
+    } catch (error) {
+      console.error('❌ Session recovery error:', error);
+      throw this.handleError(error);
+    }
+  }
+
+  /**
+   * Get stored user data (helper method)
+   */
+  async getStoredUserData() {
+    try {
+      // This would typically use AsyncStorage or SecureStore
+      // For now, return null - implement based on your storage solution
+      return null;
+    } catch (error) {
+      console.error('Error getting stored user data:', error);
+      return null;
     }
   }
 
@@ -796,7 +866,7 @@ class NestJSApiService {
     try {
       console.log('📁 Fetching modules list');
       
-      const response = await this.api.get('/approvals/modules/list');
+      const response = await this.api.get('/approvals/modules');
       
       return response.data;
     } catch (error) {

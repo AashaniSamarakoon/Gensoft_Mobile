@@ -1,21 +1,23 @@
 // API Configuration for NestJS Backend Integration
+// SINGLE SOURCE OF TRUTH for all API configurations
 
 // Environment Configuration
 const ENVIRONMENT = __DEV__ ? 'development' : 'production';
 
-// Server Configuration
+// Server Configuration - Centralized BASE_URL management
 const API_CONFIG = {
   development: {
-    // Updated for NestJS backend on port 3001
-    BASE_URL: 'http://192.168.1.55:3001/api/v1',
-    // Alternative for emulator testing:
-    // BASE_URL: 'http://localhost:3001/api/v1',
+    // Primary NestJS backend URL - Environment variable takes priority
+    BASE_URL: process.env.REACT_APP_NESTJS_BACKEND_URL || 'http://192.168.1.55:3001/api/v1',
+    // Raw URL without /api/v1 suffix (for legacy compatibility)
+    BASE_URL_RAW: process.env.REACT_APP_NESTJS_BACKEND_URL?.replace('/api/v1', '') || 'http://192.168.1.55:3001',
     TIMEOUT: 10000,
     RETRY_ATTEMPTS: 3,
   },
   production: {
     // Production server URL for combined backend+middleware server
-    BASE_URL: 'https://your-production-server.com/api/v1',
+    BASE_URL: process.env.REACT_APP_NESTJS_BACKEND_URL || 'https://your-production-server.com/api/v1',
+    BASE_URL_RAW: process.env.REACT_APP_NESTJS_BACKEND_URL?.replace('/api/v1', '') || 'https://your-production-server.com',
     TIMEOUT: 15000,
     RETRY_ATTEMPTS: 2,
   },
@@ -26,10 +28,19 @@ const getCurrentConfig = () => {
   return API_CONFIG[ENVIRONMENT];
 };
 
-// Export configuration
+// Export configuration - CENTRALIZED BASE_URL exports
 export const API_BASE_URL = getCurrentConfig().BASE_URL;
+export const API_BASE_URL_RAW = getCurrentConfig().BASE_URL_RAW;
 export const API_TIMEOUT = getCurrentConfig().TIMEOUT;
 export const API_RETRY_ATTEMPTS = getCurrentConfig().RETRY_ATTEMPTS;
+
+// Helper functions for URL building
+export const getBaseURL = () => getCurrentConfig().BASE_URL;
+export const getBaseURLRaw = () => getCurrentConfig().BASE_URL_RAW;
+export const buildApiURL = (endpoint) => {
+  const baseUrl = getCurrentConfig().BASE_URL;
+  return endpoint.startsWith('/') ? `${baseUrl}${endpoint}` : `${baseUrl}/${endpoint}`;
+};
 
 // Feature flags for gradual migration
 export const FEATURE_FLAGS = {
@@ -43,14 +54,15 @@ export const FEATURE_FLAGS = {
 
 // API Endpoints mapping (for easy reference)
 export const ENDPOINTS = {
-  // Authentication
+  // Authentication - Updated to match actual implementation
   AUTH: {
     LOGIN: '/auth/login',
     REGISTER: '/auth/register',
     LOGOUT: '/auth/logout',
     REFRESH: '/auth/refresh',
     PROFILE: '/auth/profile',
-    QR_LOGIN: '/auth/qr-login',
+    QUICK_LOGIN: '/auth/quick-login',    // Fixed: was QR_LOGIN pointing to wrong endpoint
+    SCAN_QR: '/auth/scan-qr',           // Added: QR scanning endpoint
   },
   
   // ERP Entities
@@ -132,10 +144,31 @@ export const buildURL = (endpoint, params = {}) => {
 
 // Log configuration on app start (development only)
 if (isDevelopment()) {
-  console.log('🔧 API Configuration:', {
+  console.log('API Configuration - CENTRALIZED CONFIG LOADED:', {
     environment: ENVIRONMENT,
     baseURL: API_BASE_URL,
+    baseURLRaw: API_BASE_URL_RAW,
     timeout: API_TIMEOUT,
     featureFlags: FEATURE_FLAGS,
   });
 }
+
+/*
+ * CENTRALIZATION SUMMARY:
+ * This file is now the SINGLE SOURCE OF TRUTH for all API configurations.
+ * 
+ * Updated files to use centralized config:
+ * ✅ /src/services/nestjsApiService.js
+ * ✅ /src/services/apiService.js  
+ * ✅ /src/context/AuthContext.js
+ * ✅ /src/screens/QRScannerScreen.js
+ * ✅ /src/screens/ConnectionTestScreen.js
+ * ✅ /services/nestjsApiService.js (root level)
+ * 
+ * Benefits:
+ * - Single point of configuration changes
+ * - Environment variable support
+ * - Consistent URL management
+ * - Easy maintenance and debugging
+ * - No more hardcoded URLs scattered throughout codebase
+ */

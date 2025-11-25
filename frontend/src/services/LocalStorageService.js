@@ -1,30 +1,94 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorageWrapper from '../utils/AsyncStorageWrapper';
 
 class LocalStorageService {
-  // Helper methods for React Native AsyncStorage
+  // Helper methods for React Native AsyncStorage using enhanced wrapper
   static async setItem(key, value) {
     try {
-      await AsyncStorage.setItem(key, JSON.stringify(value));
+      await AsyncStorageWrapper.setItem(key, value);
     } catch (error) {
-      console.error('AsyncStorage setItem error:', error);
+      console.error('LocalStorageService setItem error:', error);
     }
   }
 
-  static async getItem(key) {
+  static async getItem(key, defaultValue = null) {
     try {
-      const item = await AsyncStorage.getItem(key);
-      return item ? JSON.parse(item) : null;
+      return await AsyncStorageWrapper.getItem(key, defaultValue);
     } catch (error) {
-      console.error('AsyncStorage getItem error:', error);
-      return null;
+      console.error('LocalStorageService getItem error:', error);
+      return defaultValue;
     }
   }
 
   static async removeItem(key) {
     try {
-      await AsyncStorage.removeItem(key);
+      await AsyncStorageWrapper.removeItem(key);
     } catch (error) {
-      console.error('AsyncStorage removeItem error:', error);
+      console.error('LocalStorageService removeItem error:', error);
+    }
+  }
+
+  // Data recovery and cleanup methods
+  static async cleanupCorruptedData() {
+    try {
+      console.log('🧹 Starting AsyncStorage cleanup...');
+      
+      const criticalKeys = [
+        '@auth_token',
+        '@user_data', 
+        '@login_session',
+        '@current_user',
+        '@users_table',
+        '@saved_accounts'
+      ];
+      
+      let cleanedCount = 0;
+      
+      for (const key of criticalKeys) {
+        try {
+          const rawValue = await AsyncStorage.getItem(key);
+          if (rawValue) {
+            // Test if it's valid JSON
+            JSON.parse(rawValue);
+            console.log(`✅ ${key}: Valid`);
+          }
+        } catch (error) {
+          console.warn(`🗑️ Removing corrupted data for ${key}:`, error.message);
+          await AsyncStorage.removeItem(key);
+          cleanedCount++;
+        }
+      }
+      
+      console.log(`🧹 Cleanup complete. Removed ${cleanedCount} corrupted entries.`);
+      return { success: true, cleanedCount };
+      
+    } catch (error) {
+      console.error('❌ Cleanup failed:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  static async validateStorageIntegrity() {
+    try {
+      console.log('🔍 Validating AsyncStorage integrity...');
+      
+      // Check if we can read/write test data
+      const testKey = '@integrity_test';
+      const testData = { timestamp: Date.now(), test: true };
+      
+      await this.setItem(testKey, testData);
+      const retrieved = await this.getItem(testKey);
+      await this.removeItem(testKey);
+      
+      if (retrieved && retrieved.test === true) {
+        console.log('✅ AsyncStorage integrity check passed');
+        return true;
+      } else {
+        console.error('❌ AsyncStorage integrity check failed');
+        return false;
+      }
+    } catch (error) {
+      console.error('❌ Storage integrity validation failed:', error);
+      return false;
     }
   }
 
