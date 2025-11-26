@@ -19,12 +19,14 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useDashboard } from '../context/DashboardContext';
+import { useAppNavigation } from '../utils/navigation';
 import DatePicker from '../components/DatePicker';
 import nestjsApiService from '../../services/nestjsApiService';
 
 const { width } = Dimensions.get('window');
 
-const CreateIOUScreen = ({ navigation }) => {
+const CreateIOUScreen = () => {
+  const navigation = useAppNavigation();
   const { user } = useAuth();
   const theme = useTheme();
   const { triggerDashboardRefresh } = useDashboard();

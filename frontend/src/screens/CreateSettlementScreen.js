@@ -12,12 +12,14 @@ import {
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useAppNavigation } from '../utils/navigation';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { apiService } from '../services/apiService';
 
-const CreateSettlementScreen = ({ navigation }) => {
+const CreateSettlementScreen = () => {
+  const navigation = useAppNavigation();
   const { user } = useAuth();
   const theme = useTheme();
   const [isLoading, setIsLoading] = useState(false);

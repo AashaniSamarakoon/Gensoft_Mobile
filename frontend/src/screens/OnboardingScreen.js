@@ -10,11 +10,14 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Animatable from 'react-native-animatable';
+import { useRouter } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import LogisticsBackground from '../components/LogisticsBackground';
 
 const { width } = Dimensions.get('window');
 
-const OnboardingScreen = ({ navigation }) => {
+const OnboardingScreen = () => {
+  const router = useRouter();
   const [currentPage, setCurrentPage] = useState(0);
   const scrollViewRef = useRef(null);
 
@@ -49,7 +52,7 @@ const OnboardingScreen = ({ navigation }) => {
     }
   ];
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (currentPage < onboardingData.length - 1) {
       const nextPage = currentPage + 1;
       setCurrentPage(nextPage);
@@ -58,12 +61,18 @@ const OnboardingScreen = ({ navigation }) => {
         animated: true,
       });
     } else {
-      navigation.navigate('Welcome');
+      // Mark onboarding as complete
+      console.log('✅ Onboarding completed, marking as done and going to welcome');
+      await AsyncStorage.setItem('@onboarding_complete', 'true');
+      router.replace('/(auth)/welcome');
     }
   };
 
-  const handleSkip = () => {
-    navigation.navigate('Welcome');
+  const handleSkip = async () => {
+    // Mark onboarding as complete
+    console.log('⏭️ User skipped onboarding, marking as done and going to welcome');
+    await AsyncStorage.setItem('@onboarding_complete', 'true');
+    router.replace('/(auth)/welcome');
   };
 
   const handleScroll = (event) => {

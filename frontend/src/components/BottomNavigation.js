@@ -8,9 +8,11 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../context/ThemeContext';
+import { useAppNavigation } from '../utils/navigation';
 
-const BottomNavigation = ({ navigation, activeRoute }) => {
+const BottomNavigation = ({ activeRoute }) => {
   const theme = useTheme();
+  const navigation = useAppNavigation();
 
   const navigationItems = [
     { key: 'Dashboard', icon: 'home', label: 'Home', route: 'Dashboard' },

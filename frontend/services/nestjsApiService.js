@@ -107,12 +107,37 @@ class NestJSApiService {
       };
       
       console.log('📤 Sending request data:', JSON.stringify(requestData));
+      console.log('🌐 POST /auth/verify-email');
+      console.log('🔗 Request URL:', `${this.baseURL}/auth/verify-email`);
       
       const response = await this.api.post('/auth/verify-email', requestData);
       
-      return response.data;
+      console.log('✅ Verification response status:', response.status);
+      console.log('✅ Verification response headers:', JSON.stringify(response.headers));
+      console.log('✅ Verification response data:', JSON.stringify(response.data));
+      
+      // Check if the response indicates success
+      if (response.data && response.data.success !== false) {
+        return response.data;
+      } else {
+        console.error('❌ Backend returned unsuccessful response:', response.data);
+        throw new Error(response.data?.message || response.data?.error || 'Verification failed');
+      }
     } catch (error) {
-      console.error('❌ Verification error:', error);
+      console.error('❌ Verification error caught:', error);
+      console.error('❌ Error type:', typeof error);
+      console.error('❌ Error constructor:', error.constructor.name);
+      
+      if (error.response) {
+        console.error('❌ Error response status:', error.response.status);
+        console.error('❌ Error response headers:', JSON.stringify(error.response.headers));
+        console.error('❌ Error response data:', JSON.stringify(error.response.data));
+      } else if (error.request) {
+        console.error('❌ Error request:', error.request);
+      } else {
+        console.error('❌ Error message:', error.message);
+      }
+      
       throw this.handleError(error);
     }
   }

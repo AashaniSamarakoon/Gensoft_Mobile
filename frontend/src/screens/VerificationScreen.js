@@ -18,9 +18,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import nestjsApiService from '../../services/nestjsApiService';
+import { useLocalSearchParams } from 'expo-router';
+import { useAppNavigation } from '../utils/navigation';
 
-const VerificationScreen = ({ route, navigation }) => {
-  const { email, username, userId, employeeId, isNewUser } = route.params;
+const VerificationScreen = () => {
+  const { email, username, userId, employeeId, isNewUser } = useLocalSearchParams();
+  const navigation = useAppNavigation();
   const { login } = useAuth();
   const theme = useTheme();
   const [verificationCode, setVerificationCode] = useState('');
@@ -28,6 +31,20 @@ const VerificationScreen = ({ route, navigation }) => {
   const [timeLeft, setTimeLeft] = useState(600); // 10 minutes in seconds
   const [canResend, setCanResend] = useState(false);
   const textInputRef = useRef(null);
+
+  // Debug: Log received parameters
+  useEffect(() => {
+    console.log('📋 VerificationScreen received params:', {
+      email,
+      username,
+      userId,
+      employeeId,
+      isNewUser
+    });
+    
+    console.log('📧 User should check their email for verification code');
+    console.log('⚠️ Do NOT auto-fill - user must enter code manually');
+  }, [email, username, userId, employeeId, isNewUser]);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -70,10 +87,22 @@ const VerificationScreen = ({ route, navigation }) => {
 
     try {
       console.log('📱 Verifying code for email:', email);
-      console.log('🔑 Verification code:', verificationCode);
+      console.log('🔑 Verification code entered:', verificationCode);
+      console.log('🔑 Verification code type:', typeof verificationCode);
+      console.log('🔑 Verification code length:', verificationCode.length);
+      console.log('👤 Employee ID:', employeeId);
+      console.log('⏰ Time left for code:', timeLeft, 'seconds');
+      
+      // Ensure verification code is exactly 6 digits and numeric
+      const cleanCode = verificationCode.trim();
+      if (!/^\d{6}$/.test(cleanCode)) {
+        Alert.alert('Invalid Format', 'Please enter exactly 6 numeric digits');
+        return;
+      }
       
       // Use the dedicated NestJS API service
-      const data = await nestjsApiService.verifyEmail(email, employeeId, verificationCode);
+      // If employeeId is null/undefined, pass null to let backend handle it
+      const data = await nestjsApiService.verifyEmail(email, employeeId || null, cleanCode);
 
       if (data.success) {
         console.log('✅ Verification successful:', data);
@@ -94,16 +123,23 @@ const VerificationScreen = ({ route, navigation }) => {
       }
     } catch (error) {
       console.error('❌ Verification error:', error);
+      console.error('❌ Error details:', error.response?.data || error.message);
       
-      // Provide specific error message based on error type
-      let errorMessage = 'Network error. Please check your connection and try again.';
-      if (error.message.includes('Server connection failed') || error.message.includes('Network connection failed')) {
-        errorMessage = 'Cannot connect to server. Please ensure the server is running and try again.';
-      } else if (error.message) {
-        errorMessage = error.message;
+      // Check if it's a validation error
+      if (error.response?.status === 400) {
+        const errorMsg = error.response?.data?.message || error.response?.data?.error || 'Invalid verification code';
+        Alert.alert('Verification Failed', errorMsg);
+      } else {
+        // Provide specific error message based on error type
+        let errorMessage = 'Network error. Please check your connection and try again.';
+        if (error.message.includes('Server connection failed') || error.message.includes('Network connection failed')) {
+          errorMessage = 'Cannot connect to server. Please ensure the server is running and try again.';
+        } else if (error.message) {
+          errorMessage = error.message;
+        }
+        
+        Alert.alert('Verification Error', errorMessage);
       }
-      
-      Alert.alert('Verification Error', errorMessage);
     } finally {
       setLoading(false);
     }

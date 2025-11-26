@@ -15,8 +15,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../context/AuthContext';
 import nestjsApiService from '../../services/nestjsApiService';
+import { useAppNavigation } from '../utils/navigation';
 
-const ProofListScreen = ({ navigation }) => {
+const ProofListScreen = () => {
+  const navigation = useAppNavigation();
   const { user } = useAuth();
   const [proofs, setProofs] = useState([]);
   const [loading, setLoading] = useState(true);

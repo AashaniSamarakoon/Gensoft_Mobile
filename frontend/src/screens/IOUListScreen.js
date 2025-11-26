@@ -18,9 +18,11 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import AppHeader from '../components/AppHeader';
+import { useAppNavigation } from '../utils/navigation';
 import nestjsApiService from '../../services/nestjsApiService';
 
-const IOUListScreen = ({ navigation }) => {
+const IOUListScreen = () => {
+  const navigation = useAppNavigation();
   const { user } = useAuth();
   const theme = useTheme();
   const [ious, setIous] = useState([]);

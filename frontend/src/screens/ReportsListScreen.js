@@ -9,10 +9,12 @@ import {
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useAppNavigation } from '../utils/navigation';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../context/ThemeContext';
 
-const ReportsListScreen = ({ navigation }) => {
+const ReportsListScreen = () => {
+  const navigation = useAppNavigation();
   const theme = useTheme();
 
   const handleBackPress = () => {

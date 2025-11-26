@@ -14,12 +14,14 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useAppNavigation } from '../utils/navigation';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import AccountSwitcher from '../components/AccountSwitcher';
 import BottomNavigation from '../components/BottomNavigation';
 
-const ProfileScreen = ({ navigation }) => {
+const ProfileScreen = () => {
+  const navigation = useAppNavigation();
   const { user, company, logout } = useAuth();
   const theme = useTheme();
   const [notifications, setNotifications] = useState(true);

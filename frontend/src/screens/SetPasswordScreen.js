@@ -14,11 +14,15 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useAppNavigation } from '../utils/navigation';
 import nestjsApiService from '../../services/nestjsApiService';
 // Note: Password hashing will be done on the backend for security
 
-const SetPasswordScreen = ({ route, navigation }) => {
-  const { userId, username, email, employeeId, isNewUser } = route.params;
+const SetPasswordScreen = () => {
+  const { userId, username, email, employeeId, isNewUser } = useLocalSearchParams();
+  const navigation = useAppNavigation();
+  const router = useRouter();
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -76,50 +80,70 @@ const SetPasswordScreen = ({ route, navigation }) => {
       if (data.success) {
         console.log('✅ Password set successfully');
         
-        // Show success message and navigate automatically
+        // Show success message and let user navigate manually
+        console.log('✅ Password set successfully for user:', username);
+        
+        // Create a function to handle navigation - go to login screen
+        const handleContinue = () => {
+          console.log('🔥 CONTINUE button pressed - navigating to login screen');
+          console.log('📍 Will navigate to login with username:', username);
+          
+          setTimeout(() => {
+            try {
+              console.log('🔄 Navigating to login screen after successful password setup...');
+              
+              // Navigate to login screen with pre-filled username
+              router.push({
+                pathname: '/(auth)/login',
+                params: {
+                  preFilledUsername: username,
+                  message: 'Password created successfully! Please login with your credentials.',
+                  showMessage: 'true'
+                }
+              });
+              
+              console.log('✅ Successfully navigated to login screen');
+              
+            } catch (navigationError) {
+              console.error('❌ Navigation to login failed, trying fallback...', navigationError);
+              
+              // Fallback: Try direct navigation to login
+              try {
+                router.replace('/(auth)/login');
+                console.log('✅ Fallback navigation to login successful');
+              } catch (fallbackError) {
+                console.error('❌ Fallback navigation failed:', fallbackError);
+                
+                // Final fallback - show instructions
+                Alert.alert(
+                  'Password Created Successfully!',
+                  `Your password has been set. Please navigate to the login screen and use username: "${username}"`,
+                  [{ text: 'OK' }]
+                );
+              }
+            }
+          }, 100);
+        };
+        
+        // Show alert with proper button handling
         Alert.alert(
           'Success!',
           'Your password has been set successfully. Redirecting to login...',
           [
             {
-              text: 'Continue',
-              onPress: () => {
-                // Navigate to Login with pre-filled username
-                navigation.navigate('Login', {
-                  preFilledUsername: username,
-                  fromPasswordSetup: true
-                });
-              }
+              text: 'CONTINUE',
+              onPress: handleContinue,
+              style: 'default'
             }
-          ]
-        );
-        
-        // Also navigate automatically after a short delay as backup
-        setTimeout(() => {
-          console.log('🚀 Auto-navigating to Login with username:', username);
-          try {
-            navigation.navigate('Login', {
-              preFilledUsername: username,
-              fromPasswordSetup: true
-            });
-            console.log('✅ Navigation to Login successful');
-          } catch (navError) {
-            console.error('❌ Navigation error:', navError);
-            // Try alternative navigation approach
-            navigation.reset({
-              index: 0,
-              routes: [
-                { 
-                  name: 'Login', 
-                  params: { 
-                    preFilledUsername: username, 
-                    fromPasswordSetup: true 
-                  } 
-                }
-              ],
-            });
+          ],
+          { 
+            cancelable: false,
+            onDismiss: () => {
+              console.log('⚠️ Alert was dismissed without button press');
+              handleContinue(); // Call handler anyway
+            }
           }
-        }, 2000);
+        );
       } else {
         console.error('❌ Set password failed:', data.error);
         
@@ -134,9 +158,13 @@ const SetPasswordScreen = ({ route, navigation }) => {
               {
                 text: 'Go to Login',
                 onPress: () => {
-                  navigation.navigate('Login', {
-                    preFilledUsername: username,
-                    securityReason: 'Account already exists - please enter your password'
+                  router.push({
+                    pathname: '/(auth)/login',
+                    params: {
+                      preFilledUsername: username,
+                      message: 'Account already exists - please enter your password',
+                      showMessage: 'true'
+                    }
                   });
                 }
               },
@@ -163,9 +191,13 @@ const SetPasswordScreen = ({ route, navigation }) => {
             {
               text: 'Go to Login',
               onPress: () => {
-                navigation.navigate('Login', {
-                  preFilledUsername: username,
-                  securityReason: 'Account already exists - please enter your password'
+                router.push({
+                  pathname: '/(auth)/login',
+                  params: {
+                    preFilledUsername: username,
+                    message: 'Account already exists - please enter your password',
+                    showMessage: 'true'
+                  }
                 });
               }
             },

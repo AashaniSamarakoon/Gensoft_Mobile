@@ -15,10 +15,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../context/ThemeContext';
 import BottomNavigation from '../components/BottomNavigation';
 import nestjsApiService from '../services/nestjsApiService';
+import { useAppNavigation } from '../utils/navigation';
 
 const { width } = Dimensions.get('window');
 
-const ApprovalsHubScreen = ({ navigation }) => {
+const ApprovalsHubScreen = () => {
+  const navigation = useAppNavigation();
   const theme = useTheme();
   const [refreshing, setRefreshing] = useState(false);
   const [stats, setStats] = useState({

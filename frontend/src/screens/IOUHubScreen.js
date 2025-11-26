@@ -13,11 +13,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../context/ThemeContext';
 import BottomNavigation from '../components/BottomNavigation';
-import nestjsApiService from '../../services/nestjsApiService';
+import nestjsApiService from '../services/nestjsApiService';
+import { useAppNavigation } from '../utils/navigation';
 
 const { width } = Dimensions.get('window');
 
-const IOUHubScreen = ({ navigation }) => {
+const IOUHubScreen = () => {
+  const navigation = useAppNavigation();
   const theme = useTheme();
   const [stats, setStats] = useState({
     totalIOUs: 0,

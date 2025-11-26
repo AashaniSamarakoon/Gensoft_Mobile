@@ -10,60 +10,72 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import LogisticsBackground from '../components/LogisticsBackground';
 
 const { width, height } = Dimensions.get('window');
 
-const SplashScreen = ({ navigation }) => {
+const SplashScreen = () => {
+  const router = useRouter();
   const logoScale = useRef(new Animated.Value(0)).current;
-  const logoRotate = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const textSlide = useRef(new Animated.Value(30)).current;
 
   useEffect(() => {
-    // Start animations
-    Animated.sequence([
-      // Logo animation
-      Animated.parallel([
-        Animated.spring(logoScale, {
-          toValue: 1,
-          tension: 100,
-          friction: 8,
-          useNativeDriver: true,
-        }),
-        Animated.timing(logoRotate, {
-          toValue: 1,
-          duration: 1000,
-          useNativeDriver: true,
-        }),
-      ]),
-      // Text animation
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 800,
-          useNativeDriver: true,
-        }),
-        Animated.timing(textSlide, {
-          toValue: 0,
-          duration: 600,
-          useNativeDriver: true,
-        }),
-      ]),
+    let isMounted = true;
+    
+    // Start animations only once
+    Animated.parallel([
+      Animated.spring(logoScale, {
+        toValue: 1,
+        tension: 100,
+        friction: 8,
+        useNativeDriver: true,
+      }),
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: true,
+      }),
+      Animated.timing(textSlide, {
+        toValue: 0,
+        duration: 600,
+        useNativeDriver: true,
+      }),
     ]).start();
 
-    // Navigate to Onboarding screen after 3 seconds
-    const timer = setTimeout(() => {
-      navigation.replace('Onboarding');
-    }, 3000);
+    // Navigate to next screen after animation completes (following backup OnboardingStack pattern)
+    const timer = setTimeout(async () => {
+      if (!isMounted) return;
+      
+      try {
+        const onboardingComplete = await AsyncStorage.getItem('@onboarding_complete');
+        console.log('🔍 Splash: Checking onboarding status:', onboardingComplete);
+        
+        if (onboardingComplete === 'true') {
+          // User has completed onboarding, go to welcome
+          console.log('🏠 Splash: Onboarding completed, going to welcome');
+          router.replace('/(auth)/welcome');
+        } else {
+          // First time user, show onboarding screens
+          console.log('📚 Splash: First time user, showing onboarding');
+          router.replace('/(auth)/onboarding');
+        }
+      } catch (error) {
+        console.error('Splash: Error checking onboarding status:', error);
+        // Default to onboarding on error (safe fallback)
+        router.replace('/(auth)/onboarding');
+      }
+    }, 1500);
 
-    return () => clearTimeout(timer);
-  }, [navigation]);
+    return () => {
+      isMounted = false;
+      clearTimeout(timer);
+    };
+  }, []);
 
-  const logoRotateInterpolate = logoRotate.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '360deg'],
-  });
+
 
   return (
     <LogisticsBackground colors={['#667eea', '#764ba2']}>
@@ -74,10 +86,7 @@ const SplashScreen = ({ navigation }) => {
             style={[
               styles.logoContainer,
               {
-                transform: [
-                  { scale: logoScale },
-                  { rotate: logoRotateInterpolate },
-                ],
+                transform: [{ scale: logoScale }],
               },
             ]}
           >
@@ -85,7 +94,7 @@ const SplashScreen = ({ navigation }) => {
               <Image
                 source={require('../../assets/gensoft-logo.jpg')}
                 style={styles.logoImage}
-                resizeMode="cover"
+                resizeMode="contain"
               />
             </View>
           </Animated.View>

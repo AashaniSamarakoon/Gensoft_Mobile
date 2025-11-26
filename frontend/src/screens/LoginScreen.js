@@ -14,20 +14,22 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import * as Animatable from 'react-native-animatable';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useLocalSearchParams } from 'expo-router';
 import LogisticsBackground from '../components/LogisticsBackground';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import nestjsApiService from '../../services/nestjsApiService';
 
-const LoginScreen = ({ navigation, route }) => {
+const LoginScreen = () => {
   const { login, switchToAccount, isAuthenticated } = useAuth();
   const theme = useTheme();
+  const params = useLocalSearchParams();
   
-  // Get selected account info from navigation params
-  const { selectedAccount, preFilledUsername, accountEmail, accountId, securityReason } = route?.params || {};
+  // Get selected account info from route params
+  const { selectedAccount, preFilledUsername, accountEmail, accountId, securityReason, message, showMessage } = params;
   
   // Debug logging to understand when LoginScreen is called
-  console.log('🔍 LoginScreen rendered with params:', { selectedAccount, preFilledUsername, accountEmail, accountId, securityReason });
+  console.log('🔍 LoginScreen rendered with params:', { selectedAccount, preFilledUsername, accountEmail, accountId, securityReason, message, showMessage });
   console.log('🔍 LoginScreen isAuthenticated:', isAuthenticated);
   
   const [username, setUsername] = useState(preFilledUsername || '');
@@ -41,6 +43,15 @@ const LoginScreen = ({ navigation, route }) => {
       setUsername(preFilledUsername);
     }
   }, [preFilledUsername]);
+
+  // Show success message if provided
+  useEffect(() => {
+    if (showMessage === 'true' && message) {
+      setTimeout(() => {
+        Alert.alert('Success', message, [{ text: 'OK' }]);
+      }, 500); // Small delay to ensure screen is fully loaded
+    }
+  }, [showMessage, message]);
 
   const handleLogin = async () => {
     // Prevent login if user is already authenticated

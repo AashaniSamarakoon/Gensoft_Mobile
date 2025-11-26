@@ -13,12 +13,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { useAppNavigation } from '../utils/navigation';
 
 const { width, height } = Dimensions.get('window');
 
-const NavigationDrawer = ({ visible, onClose, navigation }) => {
+const NavigationDrawer = ({ visible, onClose }) => {
   const { user, company } = useAuth();
   const theme = useTheme();
+  const navigation = useAppNavigation();
 
   const menuItems = [
     {

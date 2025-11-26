@@ -13,11 +13,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Animatable from 'react-native-animatable';
 import { useAuth } from '../context/AuthContext';
+import { useAppNavigation } from '../utils/navigation';
 
-const SavedAccountsScreen = ({ navigation }) => {
-  const { accounts, switchToAccount, clearAccounts, debugAccounts, reloadAccounts, quickLogin } = useAuth();
+const SavedAccountsScreen = () => {
+  const { accounts, switchToAccount, clearAccounts, debugAccounts, reloadAccounts, quickLogin, isAuthenticated } = useAuth();
+  const navigation = useAppNavigation();
   const [loading, setLoading] = useState(false);
   const [switchingAccountId, setSwitchingAccountId] = useState(null);
+  const [hasAttemptedQuickLogin, setHasAttemptedQuickLogin] = useState(false);
   
   // Debug: Log accounts when component renders
   useEffect(() => {
@@ -30,15 +33,22 @@ const SavedAccountsScreen = ({ navigation }) => {
     }
   }, [accounts]);
 
-  // Force reload accounts when screen focuses
+  // Load accounts on component mount only (if not already loaded)
   useEffect(() => {
-    const focusListener = navigation.addListener('focus', () => {
-      console.log('📱 SavedAccountsScreen focused - reloading accounts');
+    if (!accounts || accounts.length === 0) {
+      console.log('📱 SavedAccountsScreen mounted - loading accounts');
       reloadAccounts();
-    });
+    }
+  }, []); // Empty dependency array to run only once
 
-    return focusListener;
-  }, [navigation, reloadAccounts]);
+  // Check if user is already authenticated and redirect
+  useEffect(() => {
+    if (isAuthenticated && !hasAttemptedQuickLogin) {
+      console.log('🔄 User already authenticated, no need for SavedAccountsScreen');
+      // Don't trigger any login here - user is already authenticated
+      return;
+    }
+  }, [isAuthenticated]);
 
   useEffect(() => {
     console.log('📋 SavedAccountsScreen - Loaded accounts:', accounts);
@@ -57,8 +67,15 @@ const SavedAccountsScreen = ({ navigation }) => {
 
   const handleAccountSelect = async (account) => {
     try {
+      // Prevent multiple attempts
+      if (loading || hasAttemptedQuickLogin || isAuthenticated) {
+        console.log('🔒 Quick login already in progress or completed');
+        return;
+      }
+      
       setSwitchingAccountId(account.user?.id || account.id);
       setLoading(true);
+      setHasAttemptedQuickLogin(true);
       console.log('🔄 Account selected for smart login:', account.user?.username || account.username);
       
       // Try quick login first

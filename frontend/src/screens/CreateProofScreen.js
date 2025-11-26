@@ -23,11 +23,13 @@ import { useAuth } from '../context/AuthContext';
 import { useDashboard } from '../context/DashboardContext';
 import DatePicker from '../components/DatePicker';
 import { useTheme } from '../context/ThemeContext';
+import { useAppNavigation } from '../utils/navigation';
 import nestjsApiService from '../../services/nestjsApiService';
 
 const { width } = Dimensions.get('window');
 
-const CreateProofScreen = ({ navigation }) => {
+const CreateProofScreen = () => {
+  const navigation = useAppNavigation();
   const { user } = useAuth();
   const theme = useTheme();
   const { triggerDashboardRefresh } = useDashboard();

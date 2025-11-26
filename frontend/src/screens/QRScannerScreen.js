@@ -23,8 +23,10 @@ import LocalStorageService from '../services/LocalStorageService';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import nestjsApiService from '../../services/nestjsApiService';
+import { useAppNavigation } from '../utils/navigation';
 
-const QRScannerScreen = ({ navigation, route }) => {
+const QRScannerScreen = ({ route }) => {
+  const navigation = useAppNavigation();
   const { loginWithQR, user } = useAuth();
   const theme = useTheme();
   const [permission, requestPermission] = useCameraPermissions();
@@ -283,10 +285,10 @@ const QRScannerScreen = ({ navigation, route }) => {
           console.log('📧 Verification email sent to:', result.data.email);
           navigation.navigate('Verification', {
             email: result.data.email,
-            username: result.data.username,
-            userId: result.data.userId,
-            employeeId: result.data.employeeId,
-            isNewUser: result.data.isNewUser
+            username: result.data.username || result.data.name,
+            userId: result.data.userId || null,
+            employeeId: result.data.employeeId || null,
+            isNewUser: result.data.isNewUser || true
           });
         }
       } else if (!result.success && result.alreadyRegistered) {

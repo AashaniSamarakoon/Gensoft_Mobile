@@ -18,6 +18,7 @@ import * as Animatable from 'react-native-animatable';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useDashboard } from '../context/DashboardContext';
+import { useAppNavigation } from '../utils/navigation';
 import SessionManager from '../utils/SessionManager';
 
 import NavigationDrawer from '../components/NavigationDrawer';
@@ -26,9 +27,10 @@ import apiService from '../services/apiService';
 
 const { width } = Dimensions.get('window');
 
-const DashboardScreen = ({ navigation, route }) => {
+const DashboardScreen = ({ route }) => {
   const { user, company, logout } = useAuth();
   const theme = useTheme();
+  const navigation = useAppNavigation();
   const { refreshTrigger } = useDashboard();
   const [searchText, setSearchText] = useState('');
   const [drawerVisible, setDrawerVisible] = useState(false);
@@ -60,10 +62,7 @@ const DashboardScreen = ({ navigation, route }) => {
           text: 'Go to Login', 
           onPress: () => {
             logout();
-            navigation.reset({
-              index: 0,
-              routes: [{ name: 'Welcome' }],
-            });
+            navigation.replace('Welcome');
           }
         }],
         { cancelable: false }
@@ -144,10 +143,7 @@ const DashboardScreen = ({ navigation, route }) => {
                     text: 'OK',
                     onPress: () => {
                       // Navigate to welcome screen after user acknowledges
-                      navigation.reset({
-                        index: 0,
-                        routes: [{ name: 'Welcome' }],
-                      });
+                      navigation.replace('Welcome');
                     }
                   }
                 ]
@@ -303,7 +299,7 @@ const DashboardScreen = ({ navigation, route }) => {
             
             <TouchableOpacity 
               style={[styles.quickAccessCard, { backgroundColor: theme.colors.surface }]}
-              onPress={() => navigation.navigate('Approvals')}
+              onPress={() => navigation.navigate('ApprovalsHub')}
             >
               <View style={[styles.quickIcon, { backgroundColor: '#f093fb' }]}>
                 <Ionicons name="time" size={16} color="#fff" />
@@ -333,45 +329,44 @@ const DashboardScreen = ({ navigation, route }) => {
             
             <TouchableOpacity 
               style={[styles.quickAccessCard, { backgroundColor: theme.colors.surface }]}
-              onPress={() => navigation.navigate('Notifications')}
+              onPress={() => navigation.navigate('Settings')}
             >
               <View style={[styles.quickIcon, { backgroundColor: '#f5576c' }]}>
-                <Ionicons name="notifications" size={16} color="#fff" />
+                <Ionicons name="settings" size={16} color="#fff" />
               </View>
-              <Text style={[styles.quickAccessText, { color: theme.colors.text }]}>Alerts</Text>
+              <Text style={[styles.quickAccessText, { color: theme.colors.text }]}>Settings</Text>
             </TouchableOpacity>
             
             <TouchableOpacity 
               style={[styles.quickAccessCard, { backgroundColor: theme.colors.surface }]}
-              onPress={() => navigation.navigate('NestJSTest')}
+              onPress={() => navigation.navigate('Profile')}
             >
               <View style={[styles.quickIcon, { backgroundColor: '#28a745' }]}>
-                <Ionicons name="server" size={16} color="#fff" />
+                <Ionicons name="person" size={16} color="#fff" />
               </View>
-              <Text style={[styles.quickAccessText, { color: theme.colors.text }]}>NestJS</Text>
+              <Text style={[styles.quickAccessText, { color: theme.colors.text }]}>Profile</Text>
             </TouchableOpacity>
             
             <TouchableOpacity 
               style={[styles.quickAccessCard, { backgroundColor: theme.colors.surface }]}
-              onPress={() => navigation.navigate('ConnectionTest')}
+              onPress={() => navigation.navigate('IOUAnalytics')}
             >
               <View style={[styles.quickIcon, { backgroundColor: '#17a2b8' }]}>
-                <Ionicons name="wifi" size={16} color="#fff" />
+                <Ionicons name="analytics" size={16} color="#fff" />
               </View>
-              <Text style={[styles.quickAccessText, { color: theme.colors.text }]}>Connect</Text>
+              <Text style={[styles.quickAccessText, { color: theme.colors.text }]}>Analytics</Text>
             </TouchableOpacity>
           </View>
         </View>
       </ScrollView>
 
       {/* Bottom Navigation Footer */}
-      <BottomNavigation navigation={navigation} activeRoute="Dashboard" />
+      <BottomNavigation activeRoute="Dashboard" />
 
       {/* Navigation Drawer */}
       <NavigationDrawer
         visible={drawerVisible}
         onClose={() => setDrawerVisible(false)}
-        navigation={navigation}
       />
     </View>
   );

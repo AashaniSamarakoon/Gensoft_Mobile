@@ -11,12 +11,21 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import * as Animatable from 'react-native-animatable';
 import { useAuth } from '../context/AuthContext';
+import { useAppNavigation } from '../utils/navigation';
 import LogisticsBackground from '../components/LogisticsBackground';
 
 const { width, height } = Dimensions.get('window');
 
-const WelcomeScreen = ({ navigation }) => {
-  const { accounts } = useAuth();
+const WelcomeScreen = () => {
+  const { accounts, clearLogoutFlag } = useAuth();
+  const navigation = useAppNavigation();
+
+  // Clear logout flag when welcome screen is rendered (user is now in auth flow)
+  React.useEffect(() => {
+    if (clearLogoutFlag) {
+      clearLogoutFlag();
+    }
+  }, [clearLogoutFlag]);
 
   const handleLoginWithEmail = () => {
     console.log('🔑 Login with Email clicked - Available accounts:', accounts?.length || 0);

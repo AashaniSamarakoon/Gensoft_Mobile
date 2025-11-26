@@ -385,9 +385,10 @@ export const AuthProvider = ({ children }) => {
         const userInfo = quickLoginData.data.user;
         const sessionInfo = quickLoginData.data.session;
 
-        await switchUser(); // Clear current session
+        // Clear API service token first
+        await apiService.setAuthToken(null);
         
-        // Store new session data
+        // Store new session data directly (no need to call switchUser for same user)
         await LocalStorageService.setItem('@auth_token', newToken);
         await LocalStorageService.setItem('@user_data', userInfo);
         await LocalStorageService.setItem('@login_session', {
