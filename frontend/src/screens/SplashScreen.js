@@ -45,11 +45,12 @@ const SplashScreen = () => {
       }),
     ]).start();
 
-    // Navigate to next screen after animation completes (following backup OnboardingStack pattern)
+    // Navigate after splash animation with proper onboarding check
     const timer = setTimeout(async () => {
       if (!isMounted) return;
       
       try {
+        // Check if user has completed onboarding
         const onboardingComplete = await AsyncStorage.getItem('@onboarding_complete');
         console.log('🔍 Splash: Checking onboarding status:', onboardingComplete);
         
@@ -59,15 +60,16 @@ const SplashScreen = () => {
           router.replace('/(auth)/welcome');
         } else {
           // First time user, show onboarding screens
-          console.log('📚 Splash: First time user, showing onboarding');
+          console.log('📚 Splash: First time user, showing onboarding screens');
           router.replace('/(auth)/onboarding');
         }
       } catch (error) {
-        console.error('Splash: Error checking onboarding status:', error);
+        console.error('❌ Splash: Error checking onboarding status:', error);
         // Default to onboarding on error (safe fallback)
+        console.log('🔄 Splash: Error occurred, defaulting to onboarding');
         router.replace('/(auth)/onboarding');
       }
-    }, 1500);
+    }, 2000);
 
     return () => {
       isMounted = false;

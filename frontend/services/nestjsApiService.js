@@ -24,25 +24,25 @@ class NestJSApiService {
     // Request interceptor
     this.api.interceptors.request.use(
       async (config) => {
-        console.log(`🌐 ${config.method?.toUpperCase()} ${config.url}`);
+        console.log(`${config.method?.toUpperCase()} ${config.url}`);
         
         // Add auth token if available
         try {
           const token = await SecureStore.getItemAsync('accessToken');
           if (token) {
             config.headers.Authorization = `Bearer ${token}`;
-            console.log('🔐 API Request with token');
+            console.log('API Request with token');
           } else {
-            console.log('📡 API Request without token');
+            console.log('API Request without token');
           }
         } catch (error) {
-          console.error('❌ Error getting token from SecureStore:', error);
+          console.error('Error getting token from SecureStore:', error);
         }
         
         return config;
       },
       (error) => {
-        console.error('❌ Request interceptor error:', error);
+        console.error('Request interceptor error:', error);
         return Promise.reject(error);
       }
     );
@@ -50,15 +50,15 @@ class NestJSApiService {
     // Response interceptor
     this.api.interceptors.response.use(
       (response) => {
-        console.log(`✅ API Response ${response.status}:`, response.config.url);
+        console.log(`API Response ${response.status}:`, response.config.url);
         return response;
       },
       (error) => {
-        console.error('❌ API Error:', error.response?.status, error.response?.data?.message || error.message);
+        console.error('API Error:', error.response?.status, error.response?.data?.message || error.message);
         
         // Handle network errors specifically
         if (error.code === 'ECONNREFUSED' || error.message === 'Network Error') {
-          console.error('🚫 Server connection failed - is the NestJS server running on port 3001?');
+          console.error('Server connection failed - is the NestJS server running on port 3001?');
         }
         
         return Promise.reject(error);
@@ -71,14 +71,14 @@ class NestJSApiService {
    */
   async scanQRCode(qrData) {
     try {
-      console.log('📱 Scanning QR Code with NestJS backend');
+      console.log('Scanning QR Code with NestJS backend');
       const response = await this.api.post('/auth/scan-qr', {
         qrData: qrData
       });
       
       return response.data;
     } catch (error) {
-      console.error('❌ QR scan error:', error);
+      console.error('QR scan error:', error);
       throw this.handleError(error);
     }
   }
@@ -88,17 +88,17 @@ class NestJSApiService {
    */
   async verifyEmail(email, employeeId, code) {
     try {
-      console.log('📱 Verifying code for email:', email);
-      console.log('🔑 Verification code:', code);
-      console.log('📤 Email type:', typeof email);
-      console.log('📤 Email value:', JSON.stringify(email));
+      console.log('Verifying code for email:', email);
+      console.log('Verification code:', code);
+      console.log('Email type:', typeof email);
+      console.log('Email value:', JSON.stringify(email));
       
       // Ensure email is a valid string
       const emailStr = email ? String(email).trim() : '';
       const codeStr = code ? String(code).trim() : '';
       
-      console.log('📤 Processed email:', emailStr);
-      console.log('📤 Processed code:', codeStr);
+      console.log('Processed email:', emailStr);
+      console.log('Processed code:', codeStr);
       
       // Backend expects 'verificationCode' field, not 'code'
       const requestData = {
@@ -106,36 +106,36 @@ class NestJSApiService {
         verificationCode: codeStr
       };
       
-      console.log('📤 Sending request data:', JSON.stringify(requestData));
-      console.log('🌐 POST /auth/verify-email');
-      console.log('🔗 Request URL:', `${this.baseURL}/auth/verify-email`);
+      console.log('Sending request data:', JSON.stringify(requestData));
+      console.log('POST /auth/verify-email');
+      console.log('Request URL:', `${this.baseURL}/auth/verify-email`);
       
       const response = await this.api.post('/auth/verify-email', requestData);
       
-      console.log('✅ Verification response status:', response.status);
-      console.log('✅ Verification response headers:', JSON.stringify(response.headers));
-      console.log('✅ Verification response data:', JSON.stringify(response.data));
+      console.log('Verification response status:', response.status);
+      console.log('Verification response headers:', JSON.stringify(response.headers));
+      console.log('Verification response data:', JSON.stringify(response.data));
       
       // Check if the response indicates success
       if (response.data && response.data.success !== false) {
         return response.data;
       } else {
-        console.error('❌ Backend returned unsuccessful response:', response.data);
+        console.error('Backend returned unsuccessful response:', response.data);
         throw new Error(response.data?.message || response.data?.error || 'Verification failed');
       }
     } catch (error) {
-      console.error('❌ Verification error caught:', error);
-      console.error('❌ Error type:', typeof error);
-      console.error('❌ Error constructor:', error.constructor.name);
+      console.error('Verification error caught:', error);
+      console.error('Error type:', typeof error);
+      console.error('Error constructor:', error.constructor.name);
       
       if (error.response) {
-        console.error('❌ Error response status:', error.response.status);
-        console.error('❌ Error response headers:', JSON.stringify(error.response.headers));
-        console.error('❌ Error response data:', JSON.stringify(error.response.data));
+        console.error('Error response status:', error.response.status);
+        console.error('Error response headers:', JSON.stringify(error.response.headers));
+        console.error('Error response data:', JSON.stringify(error.response.data));
       } else if (error.request) {
-        console.error('❌ Error request:', error.request);
+        console.error('Error request:', error.request);
       } else {
-        console.error('❌ Error message:', error.message);
+        console.error('Error message:', error.message);
       }
       
       throw this.handleError(error);
@@ -147,7 +147,7 @@ class NestJSApiService {
    */
   async verifyPassword(email, employeeId, password) {
     try {
-      console.log('🔐 Verifying password for:', email);
+      console.log('Verifying password for:', email);
       
       const response = await this.api.post('/auth/verify-password', {
         email: email,
@@ -157,7 +157,7 @@ class NestJSApiService {
       
       return response.data;
     } catch (error) {
-      console.error('❌ Password verification error:', error);
+      console.error('Password verification error:', error);
       throw this.handleError(error);
     }
   }
@@ -167,7 +167,7 @@ class NestJSApiService {
    */
   async setMobilePassword(email, mobilePassword, confirmPassword) {
     try {
-      console.log('🔐 Setting mobile password for:', email);
+      console.log('Setting mobile password for:', email);
       
       const response = await this.api.post('/auth/set-mobile-password', {
         email: email,
@@ -177,7 +177,7 @@ class NestJSApiService {
       
       return response.data;
     } catch (error) {
-      console.error('❌ Set password error:', error);
+      console.error('Set password error:', error);
       throw this.handleError(error);
     }
   }
@@ -187,7 +187,7 @@ class NestJSApiService {
    */
   async login(username, password) {
     try {
-      console.log('🔐 Logging in user:', username);
+      console.log('Logging in user:', username);
       
       const response = await this.api.post('/auth/login', {
         username: username,
@@ -203,7 +203,7 @@ class NestJSApiService {
       
       return result;
     } catch (error) {
-      console.error('❌ Login error:', error);
+      console.error('Login error:', error);
       throw this.handleError(error);
     }
   }
@@ -213,7 +213,7 @@ class NestJSApiService {
    */
   async quickLogin(userId, deviceInfo = {}) {
     try {
-      console.log('⚡ Quick login attempt for user:', userId);
+      console.log('Quick login attempt for user:', userId);
       
       const response = await this.api.post('/auth/quick-login', {
         userId: userId,
@@ -226,7 +226,7 @@ class NestJSApiService {
       });
       return response.data;
     } catch (error) {
-      console.error('❌ Quick login error:', error);
+      console.error('Quick login error:', error);
       
       // If quick login fails with specific errors, try to recover
       if (error.response && error.response.status === 401) {
@@ -237,7 +237,7 @@ class NestJSApiService {
             errorMessage.includes('Session expired') ||
             errorMessage.includes('No active session')) {
           
-          console.log('🔄 Attempting session recovery...');
+          console.log('Attempting session recovery...');
           try {
             // Try to get user info from stored data
             const userData = await this.getStoredUserData();
@@ -245,7 +245,7 @@ class NestJSApiService {
               const recoveryResponse = await this.recoverUserSession(userData.email);
               
               if (recoveryResponse.success && recoveryResponse.data.action === 'retry_quick_login') {
-                console.log('✅ Session recovered, retrying quick login...');
+                console.log('Session recovered, retrying quick login...');
                 // Retry the quick login with recovered session
                 const retryResponse = await this.api.post('/auth/quick-login', {
                   userId: recoveryResponse.data.userId,
@@ -263,7 +263,7 @@ class NestJSApiService {
               }
             }
           } catch (recoveryError) {
-            console.error('❌ Session recovery failed:', recoveryError);
+            console.error('Session recovery failed:', recoveryError);
           }
         }
       }
@@ -277,11 +277,11 @@ class NestJSApiService {
    */
   async recoverUserSession(email) {
     try {
-      console.log('🔄 Recovering user session for:', email);
+      console.log('Recovering user session for:', email);
       const response = await this.api.post('/auth/recover-session', { email });
       return response.data;
     } catch (error) {
-      console.error('❌ Session recovery error:', error);
+      console.error('Session recovery error:', error);
       throw this.handleError(error);
     }
   }
@@ -308,7 +308,7 @@ class NestJSApiService {
       const response = await this.api.get('/auth/saved-accounts');
       return response.data;
     } catch (error) {
-      console.error('❌ Get saved accounts error:', error);
+      console.error('Get saved accounts error:', error);
       throw this.handleError(error);
     }
   }
@@ -318,14 +318,14 @@ class NestJSApiService {
    */
   async logout() {
     try {
-      console.log('🚪 Logging out...');
+      console.log('Logging out...');
       
       await this.api.post('/auth/logout');
       await this.clearTokens();
       
-      console.log('✅ Logout successful');
+      console.log('Logout successful');
     } catch (error) {
-      console.error('❌ Logout error:', error);
+      console.error('Logout error:', error);
       // Clear tokens anyway
       await this.clearTokens();
       throw this.handleError(error);
@@ -340,7 +340,7 @@ class NestJSApiService {
       const response = await this.api.get('/auth/health');
       return response.data;
     } catch (error) {
-      console.error('❌ Health check failed:', error);
+      console.error('Health check failed:', error);
       return { status: 'error', message: error.message };
     }
   }
@@ -353,7 +353,7 @@ class NestJSApiService {
       const response = await this.api.get('/network-test/ping');
       return response.data;
     } catch (error) {
-      console.error('❌ Ping failed:', error);
+      console.error('Ping failed:', error);
       throw this.handleError(error);
     }
   }
@@ -363,7 +363,7 @@ class NestJSApiService {
    */
   async saveTokens(tokens, userData = null) {
     try {
-      console.log('💾 Saving authentication tokens...');
+      console.log('Saving authentication tokens...');
       await SecureStore.setItemAsync('accessToken', tokens.accessToken);
       await SecureStore.setItemAsync('refreshToken', tokens.refreshToken);
       
@@ -371,9 +371,9 @@ class NestJSApiService {
         await SecureStore.setItemAsync('userData', JSON.stringify(userData));
       }
       
-      console.log('✅ Tokens saved successfully');
+      console.log('Tokens saved successfully');
     } catch (error) {
-      console.error('❌ Error saving tokens:', error);
+      console.error('Error saving tokens:', error);
       throw error;
     }
   }
@@ -390,20 +390,20 @@ class NestJSApiService {
         userData: userData ? JSON.parse(userData) : null
       };
     } catch (error) {
-      console.error('❌ Error getting stored tokens:', error);
+      console.error('Error getting stored tokens:', error);
       return null;
     }
   }
 
   async clearTokens() {
     try {
-      console.log('🗑️ Clearing stored tokens');
+      console.log('Clearing stored tokens');
       await SecureStore.deleteItemAsync('accessToken');
       await SecureStore.deleteItemAsync('refreshToken');
       await SecureStore.deleteItemAsync('userData');
-      console.log('✅ Tokens cleared successfully');
+      console.log('Tokens cleared successfully');
     } catch (error) {
-      console.error('❌ Error clearing tokens:', error);
+      console.error('Error clearing tokens:', error);
     }
   }
 
@@ -417,7 +417,7 @@ class NestJSApiService {
       return new Error(message);
     } else if (error.request) {
       // Network error
-      console.error('🚫 Network Error Details:', error.request);
+      console.error('Network Error Details:', error.request);
       return new Error('Network connection failed. Please check if the server is running and your connection is stable.');
     } else {
       // Other error
@@ -449,17 +449,17 @@ class NestJSApiService {
    * Test Connection
    */
   async testConnection() {
-    console.log('🔗 Testing connection to NestJS backend...');
-    console.log('🌐 Backend URL:', this.baseURL);
+    console.log('Testing connection to NestJS backend...');
+    console.log('Backend URL:', this.baseURL);
     
     const status = await this.getServerStatus();
     
     if (status.online) {
-      console.log('✅ Server is online and responding');
+      console.log('Server is online and responding');
       return { success: true, message: 'Connection successful' };
     } else {
-      console.error('❌ Server is offline or unreachable');
-      console.error('📋 Error details:', status.details);
+      console.error('Server is offline or unreachable');
+      console.error('Error details:', status.details);
       return { 
         success: false, 
         message: status.details,
@@ -477,13 +477,13 @@ class NestJSApiService {
    */
   async createIOU(iouData) {
     try {
-      console.log('📝 Creating IOU:', iouData);
+      console.log('Creating IOU:', iouData);
       
       const response = await this.api.post('/iou', iouData);
       
       return response.data;
     } catch (error) {
-      console.error('❌ Create IOU error:', error);
+      console.error('Create IOU error:', error);
       throw this.handleError(error);
     }
   }
@@ -493,13 +493,13 @@ class NestJSApiService {
    */
   async getIOUs(queryParams = {}) {
     try {
-      console.log('📋 Fetching IOUs with params:', queryParams);
+      console.log('Fetching IOUs with params:', queryParams);
       
       const response = await this.api.get('/iou', { params: queryParams });
       
       return response.data;
     } catch (error) {
-      console.error('❌ Get IOUs error:', error);
+      console.error('Get IOUs error:', error);
       throw this.handleError(error);
     }
   }

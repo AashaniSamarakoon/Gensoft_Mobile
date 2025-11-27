@@ -23,6 +23,10 @@ function RootLayoutNav() {
         const onboardingComplete = await AsyncStorage.getItem('@onboarding_complete');
         const hasSeenIt = onboardingComplete === 'true';
         console.log('🔍 Main layout - Onboarding check:', onboardingComplete, '→ HasSeen:', hasSeenIt);
+        
+        // FOR TESTING: Uncomment the line below to reset onboarding (remove in production)
+        // await AsyncStorage.removeItem('@onboarding_complete'); setHasSeenOnboarding(false);
+        
         setHasSeenOnboarding(hasSeenIt);
       } catch (error) {
         console.error('Error checking onboarding status:', error);
@@ -58,9 +62,9 @@ function RootLayoutNav() {
         console.log('📤 User logged out, going directly to welcome screen');
         router.replace('/(auth)/welcome');
       }
-      // Always start fresh users with splash for proper onboarding flow
+      // All unauthenticated users go through splash which handles onboarding check
       else {
-        console.log('🚀 Starting auth flow from splash (will handle onboarding routing)');
+        console.log('🚀 Starting with splash screen for proper flow');
         router.replace('/(auth)/splash');
       }
     }

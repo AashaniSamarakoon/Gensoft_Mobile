@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -17,9 +17,17 @@ import LogisticsBackground from '../components/LogisticsBackground';
 const { width } = Dimensions.get('window');
 
 const OnboardingScreen = () => {
+  console.log('🎯 OnboardingScreen: Component is being rendered!');
   const router = useRouter();
   const [currentPage, setCurrentPage] = useState(0);
   const scrollViewRef = useRef(null);
+
+  // Add a simple test to see if component mounts
+  useEffect(() => {
+    console.log('🔄 OnboardingScreen: Component mounted successfully');
+    console.log('📊 OnboardingScreen: Current page:', currentPage);
+    console.log('📱 OnboardingScreen: Total onboarding data items:', onboardingData.length);
+  }, []);
 
   const onboardingData = [
     {
@@ -53,6 +61,7 @@ const OnboardingScreen = () => {
   ];
 
   const handleNext = async () => {
+    console.log('🔄 OnboardingScreen: Next button pressed, current page:', currentPage);
     if (currentPage < onboardingData.length - 1) {
       const nextPage = currentPage + 1;
       setCurrentPage(nextPage);
@@ -60,18 +69,21 @@ const OnboardingScreen = () => {
         x: nextPage * width,
         animated: true,
       });
+      console.log('📱 OnboardingScreen: Moved to page:', nextPage);
     } else {
-      // Mark onboarding as complete
-      console.log('✅ Onboarding completed, marking as done and going to welcome');
+      // Mark onboarding as complete and set both flags
+      console.log('✅ OnboardingScreen: Completed, marking as done and going to welcome');
       await AsyncStorage.setItem('@onboarding_complete', 'true');
+      await AsyncStorage.setItem('hasSeenOnboarding', 'true');
       router.replace('/(auth)/welcome');
     }
   };
 
   const handleSkip = async () => {
-    // Mark onboarding as complete
-    console.log('⏭️ User skipped onboarding, marking as done and going to welcome');
+    // Mark onboarding as complete and set both flags
+    console.log('⏭️ OnboardingScreen: User skipped onboarding, marking as done and going to welcome');
     await AsyncStorage.setItem('@onboarding_complete', 'true');
+    await AsyncStorage.setItem('hasSeenOnboarding', 'true');
     router.replace('/(auth)/welcome');
   };
 
@@ -83,28 +95,21 @@ const OnboardingScreen = () => {
 
   const renderPage = (item, index) => (
     <View key={item.id} style={styles.pageContainer}>
-      <Animatable.View 
-        animation="fadeInUp" 
-        duration={800}
-        style={styles.iconContainer}
-      >
+      <View style={styles.iconContainer}>
         <View style={styles.iconCircle}>
           <Ionicons name={item.icon} size={60} color="#ffffff" />
         </View>
-      </Animatable.View>
+      </View>
 
-      <Animatable.View 
-        animation="fadeInUp" 
-        duration={800}
-        delay={200}
-        style={styles.textContainer}
-      >
+      <View style={styles.textContainer}>
         <Text style={styles.title}>{item.title}</Text>
         <Text style={styles.description}>{item.description}</Text>
-      </Animatable.View>
+      </View>
     </View>
   );
 
+  console.log('🎨 OnboardingScreen: About to render with currentPage:', currentPage, 'total pages:', onboardingData.length);
+  
   return (
     <LogisticsBackground colors={['#667eea', '#764ba2']}>
       <SafeAreaView style={styles.container}>
